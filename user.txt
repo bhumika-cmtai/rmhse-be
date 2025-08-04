@@ -1,0 +1,92 @@
+users
+{
+  "statusCode": 200,
+  "message": "Users retrieved successfully",
+  "data": {
+    "users": [
+      {
+        "_id": "689052ce895bb89664290a48",
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "phoneNumber": "1234567890",
+        "roleId": [],
+        "withdrawRequest": [],
+        "extendRequest": [],
+        "limit": 25,
+        "role": "user",
+        "income": 0,
+        "dob": "1995-08-15",
+        "__v": 0,
+        "registeredClientCount": 0
+      },
+      {
+        "_id": "689052ec895bb89664290a4b",
+        "name": "bhumika",
+        "email": "bhumika@gmail.com",
+        "phoneNumber": "1234567890",
+        "roleId": [],
+        "withdrawRequest": [],
+        "extendRequest": [],
+        "limit": 25,
+        "role": "user",
+        "income": 0,
+        "dob": "2004-06-15",
+        "__v": 0,
+        "registeredClientCount": 0
+      },
+      {
+        "_id": "689055cc470cb63552a142fe",
+        "name": "madhvi",
+        "email": "madhvi@gmail.com",
+        "phoneNumber": "1234567890",
+        "roleId": [],
+        "withdrawRequest": [],
+        "extendRequest": [],
+        "limit": 25,
+        "role": "user",
+        "income": 0,
+        "dob": "2004-08-15",
+        "__v": 0,
+        "registeredClientCount": 0
+      },
+      {
+        "_id": "689055f8470cb63552a14301",
+        "name": "priyanka",
+        "email": "priyanka@gmail.com",
+        "phoneNumber": "1234567890",
+        "roleId": [],
+        "withdrawRequest": [],
+        "extendRequest": [],
+        "limit": 25,
+        "role": "user",
+        "income": 0,
+        "dob": "1999-07-09",
+        "__v": 0,
+        "registeredClientCount": 0
+      },
+      {
+        "_id": "68905629470cb63552a14305",
+        "name": "suraj",
+        "email": "suraj@gmail.com",
+        "phoneNumber": "87648905",
+        "roleId": [],
+        "withdrawRequest": [],
+        "extendRequest": [],
+        "limit": 25,
+        "role": "user",
+        "income": 0,
+        "dob": "1965-12-19",
+        "__v": 0,
+        "registeredClientCount": 0
+      }
+    ],
+    "totalPages": 1,
+    "currentPage": 1,
+    "totalUsers": 5
+  },
+  "errorCode": "NO",
+  "errorMessage": ""
+}
+
+
+http://localhost:8000/v1/users/getAllUsers?page=1&limit=10&month=12&year=2024
