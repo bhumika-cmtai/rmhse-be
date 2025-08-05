@@ -88,18 +88,17 @@ class UserService {
     }
   } 
 
-  async getAllUsers(searchQuery = '', status, page = 1, limit = 15, month, year) {
+  async getAllUsers(searchQuery = '', status, role, page = 1, limit = 15, month, year) {
     try {
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
-
+      console.log(searchQuery)
       // Base pipeline
       const pipeline = [];
 
       // Add a field that converts the `createdOn` STRING to a real DATE
       pipeline.push({
         $addFields: {
-          // $toDate requires a number, so we first convert the string to a long
           createdOnDate: { $toDate: { $toLong: "$createdOn" } }
         }
       });
@@ -119,6 +118,11 @@ class UserService {
         matchStage.status = status;
       }
       
+      // MODIFIED: Add role filter for the dropdown
+      if (role) {
+        matchStage.role = role;
+      }
+
       // Add date filter if month and year are provided
       if (month && year) {
         const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
@@ -129,10 +133,12 @@ class UserService {
         };
       }
       
-      // Add search query filter (searches name, roleId array, and latestRoleId)
+      // MODIFIED: Add search query filter to search name, role, phoneNumber, and roleId
       if (searchQuery) {
         matchStage.$or = [
           { name: { $regex: searchQuery, $options: 'i' } },
+          { phoneNumber: { $regex: searchQuery, $options: 'i' } },
+          { role: { $regex: searchQuery, $options: 'i' } },
           { "roleId": { $elemMatch: { $regex: searchQuery, $options: 'i' } } },
           { latestRoleId: { $regex: searchQuery, $options: 'i' } }
         ];

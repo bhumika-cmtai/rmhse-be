@@ -114,24 +114,25 @@ router.delete('/deleteManyUsers', async (req, res) => {
 // Get all users
 router.get('/getAllUsers', async (req, res) => {
   try {
-    // --- MODIFICATION: Destructure month and year from query to match service method ---
-    const { searchQuery, status, page = 1, limit = 15, month, year } = req.query;
+    // MODIFICATION: Destructure `role` from the query
+    const { searchQuery, status, role, page = 1, limit = 15, month, year } = req.query;
+    console.log(role)
 
-    // --- MODIFICATION: Pass month and year to the service method ---
-    const result = await UserService.getAllUsers(searchQuery, status, page, limit, month, year);
-
-    // No change from here down, this part is correct.
+    // MODIFICATION: Pass `role` to the service method
+    const result = await UserService.getAllUsers(searchQuery, status, role, page, limit, month, year);
+    // console.log(searchQuery)
     if (!result || result.users.length === 0) {
       return ResponseManager.sendSuccess(res, {
         users: [],
         totalPages: 0,
-        currentPage: page,
+        currentPage: parseInt(page, 10),
         totalUsers: 0
       }, 200, 'No users found');
     }
 
+    // This filter is good for security, ensuring admins are never leaked via this route.
     const filteredUsers = result.users.filter(user => user.role !== 'admin');
-
+    // console.log(filteredUsers)
     return ResponseManager.sendSuccess(
       res, 
       {
@@ -144,6 +145,7 @@ router.get('/getAllUsers', async (req, res) => {
       'Users retrieved successfully'
     );
   } catch (err) {
+    console.log(err)
     console.error(`Error fetching users: ${err.message}`);
     return ResponseManager.sendError(
       res, 
