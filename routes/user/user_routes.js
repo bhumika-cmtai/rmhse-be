@@ -10,6 +10,47 @@ import User from '../../models/user/userModel.js';
 
 const router = express.Router();
 
+//create a user 
+router.post('/addUser', async (req, res) => {
+  try {
+    // Extract fields from the request body
+    if (!req.body.name) {
+      return ResponseManager.handleBadRequestError(res, 'Name is required');
+    }
+
+    if (!req.body.email) {
+      return ResponseManager.handleBadRequestError(res, 'Email is required');
+    }
+    
+    if (!req.body.password) {
+      return ResponseManager.handleBadRequestError(res, 'Password is required');
+    }
+
+    if (!req.body.phoneNumber) {
+      return ResponseManager.handleBadRequestError(res, 'Primary phone is required');
+    }
+
+    if (!req.body.role) {
+      return ResponseManager.handleBadRequestError(res, 'Role is required');
+    }
+
+    // Create the user if all required fields are present
+    const user = await UserService.createUser(req.body);
+    return ResponseManager.sendSuccess(res, user, 201, 'User created successfully');
+  } catch (err) {
+
+  if (err.statusCode) {
+    return ResponseManager.sendError(res, err.statusCode, 'EMAIL_ALREADY_EXISTS', err.message);
+  } else {
+    console.error(err); 
+    return ResponseManager.sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'An unexpected error occurred while creating the user.');
+  }
+  
+}
+});
+
+
+
 // Get a user by ID
 router.get('/getUser/:id', async (req, res) => {
   try {
