@@ -6,7 +6,6 @@ import consoleManager from "../../utils/consoleManager.js";
 import jwt from 'jsonwebtoken';
 import authMiddleware from '../../middleware/authMiddleware.js'; // Import the new middleware
 import User from '../../models/user/userModel.js'; 
-import { documentUpload } from '../../middleware/multer.js'
 
 
 const router = express.Router();
@@ -230,24 +229,16 @@ router.put('/update-bank', authMiddleware, async (req, res) => {
 });
 
 // PUT /api/auth/user/update-document - Update document images for the logged-in user
-router.put('/update-document', 
-  authMiddleware,      // 2. First, authenticate the user
-  documentUpload,      // 3. THEN, process the uploaded files with Multer
-  async (req, res) => {
+router.put('/update-document', authMiddleware, async (req, res) => {
     try {
-      // 4. Pass req.files to the service, not req.body
-      const updatedUser = await UserService.updateDocument(req.user.id, req.files);
-      
+      const updatedUser = await UserService.updateDocument(req.user.id, req.body);
       if (updatedUser) {
         return ResponseManager.sendSuccess(res, updatedUser, 200, 'User documents updated successfully');
       } else {
         return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for update');
       }
     } catch (err) {
-      console.error(err); // Good practice to log the actual error on the server
-      const statusCode = err.statusCode || 500;
-      const message = err.message || 'Error updating user documents';
-      return ResponseManager.sendError(res, statusCode, 'INTERNAL_ERROR', message);
+      return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error updating user documents');
     }
 });
 
