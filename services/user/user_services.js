@@ -285,49 +285,31 @@ class UserService {
   async updateDocument(userId, files) {
     try {
       if (!files || Object.keys(files).length === 0) {
-        const error = new Error("No files were provided for upload.");
-        error.statusCode = 400;
-        throw error;
+        throw new Error("No files were provided for upload.");
       }
-      
       const updateFields = {};
-
-      // The middleware has already uploaded the file. 
-      // The `path` property now contains the final Cloudinary URL.
       if (files.pancard) {
-        updateFields.pancard = files.pancard[0].path;
+        updateFields.pancard = files.pancard[0].path; // This path is the Cloudinary URL
       }
-  
       if (files.adharFront) {
         updateFields.adharFront = files.adharFront[0].path;
       }
-  
       if (files.adharBack) {
         updateFields.adharBack = files.adharBack[0].path;
       }
-
-      // Only update the database if there are new URLs
       if (Object.keys(updateFields).length > 0) {
         updateFields.updatedOn = Date.now();
-        
         const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
-        
-        if (!user) {
-          consoleManager.error("User not found for document update");
-          return null;
-        }
-
-        consoleManager.log("User documents updated successfully");
+        if (!user) return null;
         return user;
-      } else {
-        consoleManager.log("No new document fields to update.");
-        return await User.findById(userId).select('-password');
       }
+      return await User.findById(userId).select('-password');
     } catch (err) {
-      consoleManager.error(`Error updating user documents: ${err.message}`);
+      console.error(`Error in updateDocument service: ${err.message}`);
       throw err;
     }
   }
+
 
   
     async getNumberOfUsers() {

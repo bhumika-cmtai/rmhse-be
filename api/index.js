@@ -1,81 +1,28 @@
-import express from "express"
-import cors from "cors"
-import dotenv from "dotenv"
-import connectDB from "../database/db.js"
-import consoleManager from "../utils/consoleManager.js"
-dotenv.config();
+// A temporary index.js for debugging
+
+import express from "express";
+import cors from "cors";
+
 const app = express();
 
-// Connect to MongoDB (cached connection)
-connectDB().catch((error) => {
-  consoleManager.error(`Database connection failed: ${error.message}`);
-  process.exit(1);
+// Use basic CORS
+app.use(cors());
+
+// A simple test route
+app.get("/v1/test", (req, res) => {
+  console.log("Test route hit successfully!");
+  res.status(200).json({ message: "Hello from the Vercel backend!" });
 });
 
-
-const allowedOrigins = [
-  "http://localhost:3000",           // Local development
-  "https://rmhse-fe.vercel.app",     // Hosted frontend on Vercel
-];
-
-// CORS Configuration for credentialed requests
-app.use(
-  cors({
-    origin: function (origin, callback) {
-       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    allowedHeaders: "Content-Type,Authorization",
-    credentials: true, // Allow credentials (cookies, HTTP authentication)
-  })
-);
-
-// Middleware
-app.use(express.json());
-// app.use(cookieParser());
-// app.options("*", cors());
-
-// Import routes
-// const profileRoute = require("../routes/auth/profile");
-import userRoute from "../routes/user/user_routes.js"
-// import contactRoute from "../routes/contact/contact_routes.js"
-
-import authRoute from "../routes/auth/auth_routes.js"
-import countRoute from "../routes/count/count_routes.js"
-import withdrawalRoute from "../routes/withdrawal/withdrawal_routes.js"
-import extendRoute from "../routes/extend/extend_routes.js"
-
-
-app.use("/v1/auth", authRoute);
-app.use("/v1/users", userRoute);
-app.use("/v1/withdrawals", withdrawalRoute);
-app.use("/v1/extends", extendRoute);
-app.use("/v1/count", countRoute);
-// app.use("/v1/contacts", contactRoute);
-
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  consoleManager.error(`Server error: ${err.stack}`);
-  res.status(err.status || 500).send(err.message || "Something went wrong!");
+// A catch-all for your login route to see if it's reachable at all
+app.use("/v1/auth/login", (req, res) => {
+  console.log("Login route was reached!");
+  res.status(200).json({ message: "Login route is alive!" });
 });
-
-// Start the server
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  //consoleManger changed to console.log for now
-  try{
-
-    console.log(`Server is running on port ${PORT}`);
-  }
-  catch(error){
-    console.log(error)
-  }
+  console.log(`Server is running on port ${PORT}`);
 });
 
 export default app;
