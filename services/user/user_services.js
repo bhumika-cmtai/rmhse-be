@@ -35,7 +35,7 @@ class UserService {
       }
       if (user) {
         const userObj = user.toObject();
-        delete userObj.password;
+        // delete userObj.password;
         return userObj;
       }
       return null;
