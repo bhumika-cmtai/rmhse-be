@@ -1,6 +1,5 @@
 import User from "../../models/user/userModel.js"
 import consoleManager from "../../utils/consoleManager.js";
-
 // const User = require("../../models/user/userModel");
 // const consoleManager = require("../../utils/consoleManager");
 
@@ -36,7 +35,7 @@ class UserService {
       }
       if (user) {
         const userObj = user.toObject();
-        // delete userObj.password;
+        delete userObj.password;
         return userObj;
       }
       return null;
