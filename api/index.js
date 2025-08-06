@@ -12,12 +12,21 @@ connectDB().catch((error) => {
   process.exit(1);
 });
 
+
+const allowedOrigins = [
+  "http://localhost:3000",           // Local development
+  "https://rmhse-fe.vercel.app",     // Hosted frontend on Vercel
+];
+
 // CORS Configuration for credentialed requests
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow all origins for development
-      callback(null, true);
+       if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
     },
     methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     allowedHeaders: "Content-Type,Authorization",
@@ -28,6 +37,7 @@ app.use(
 // Middleware
 app.use(express.json());
 // app.use(cookieParser());
+// app.options("*", cors());
 
 // Import routes
 // const profileRoute = require("../routes/auth/profile");
