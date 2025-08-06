@@ -9,8 +9,9 @@ const extendSchema = new mongoose.Schema({
     required: false 
   },
   userId: {
-    type: String,
-    required: false
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User', // Assumes your User model is named 'User'
+      required: true
   },
 //   amount: { 
 //     type: Number,

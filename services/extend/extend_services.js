@@ -26,6 +26,7 @@ class ExtendService {
   async getAllExtends() {
     try {
       const extendRequests = await Extend.find()
+        .populate('userId', 'name') // <-- THIS IS THE NEW LINE
         .sort({ createdOn: -1 }); // Sort by latest date first
       
       consoleManager.log("All extension requests retrieved successfully");
