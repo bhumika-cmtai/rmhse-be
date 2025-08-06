@@ -64,7 +64,7 @@ class WithdrawalService {
 
         if (user) {
           // 4. Update the user's income by adding the withdrawal amount
-          user.income = (user.income || 0) + withdrawal.amount;
+          user.income = (user.income || 0) - withdrawal.amount;
           
           // 5. Save the updated user document
           await user.save();
