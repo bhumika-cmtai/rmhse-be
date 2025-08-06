@@ -1,4 +1,5 @@
 import Withdrawal from "../../models/withdrawal/withdrawalModel.js";
+import User from "../../models/user/userModel.js"
 import consoleManager from "../../utils/consoleManager.js";
 
 class WithdrawalService {
@@ -43,7 +44,7 @@ class WithdrawalService {
     try {
       updateData.updatedOn = Date.now();
       
-      const withdrawal = await Withdrawal.findByIdAndUpdate(
+        const withdrawal = await Withdrawal.findByIdAndUpdate(
         withdrawalId, 
         updateData, 
         { new: true }
@@ -53,6 +54,27 @@ class WithdrawalService {
         consoleManager.error("Withdrawal not found for update");
         return null;
       }
+
+      // --- NEW LOGIC STARTS HERE ---
+
+      // 2. Check if the status is 'approved'
+      if (updateData.status === 'approved') {
+        // 3. Find the associated user
+        const user = await User.findById(withdrawal.userId);
+
+        if (user) {
+          // 4. Update the user's income by adding the withdrawal amount
+          user.income = (user.income || 0) + withdrawal.amount;
+          
+          // 5. Save the updated user document
+          await user.save();
+          consoleManager.log(`Income updated for user ${user._id}`);
+        } else {
+          consoleManager.error(`User not found for income update: ${withdrawal.userId}`);
+        }
+      }
+
+      // --- NEW LOGIC ENDS HERE ---
       
       consoleManager.log("Withdrawal updated successfully");
       return withdrawal;
@@ -61,6 +83,7 @@ class WithdrawalService {
       throw err;
     }
   }
+
 
   async getWithdrawalsByUserId(userId) {
     try {

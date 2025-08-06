@@ -91,7 +91,6 @@ router.put('/updateWithdrawal/:id', async (req, res) => {
         'Withdrawal not found'
       );
     }
-    
     return ResponseManager.sendSuccess(
       res, 
       withdrawal, 
