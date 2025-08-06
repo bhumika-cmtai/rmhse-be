@@ -23,10 +23,13 @@ class WithdrawalService {
     }
   }
 
-  async getAllWithdrawals() {
+    async getAllWithdrawals() {
     try {
+      // Chain .populate() to fetch user details.
+      // The second argument 'name email' selects which user fields to include.
       const withdrawals = await Withdrawal.find()
-        .sort({ createdOn: -1 }); // Sort by latest date first
+        .populate('userId', 'name') // <-- THIS IS THE NEW LINE
+        .sort({ createdOn: -1 });
       
       consoleManager.log("All withdrawals retrieved successfully");
       return withdrawals;

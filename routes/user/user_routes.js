@@ -116,7 +116,7 @@ router.get('/getAllUsers', async (req, res) => {
   try {
     // MODIFICATION: Destructure `role` from the query
     const { searchQuery, status, role, page = 1, limit = 15, month, year } = req.query;
-    console.log(role)
+    // console.log(role)
 
     // MODIFICATION: Pass `role` to the service method
     const result = await UserService.getAllUsers(searchQuery, status, role, page, limit, month, year);
