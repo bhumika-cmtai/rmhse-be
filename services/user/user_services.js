@@ -1,5 +1,8 @@
 import User from "../../models/user/userModel.js"
 import consoleManager from "../../utils/consoleManager.js";
+import { uploadToCloudinary } from '../../config/cloudinary.js';
+import fs from 'fs';
+
 // const User = require("../../models/user/userModel");
 // const consoleManager = require("../../utils/consoleManager");
 
@@ -280,26 +283,53 @@ class UserService {
     }
   }
 
-  async updateDocument(userId, documentData) {
+  async updateDocument(userId, files) {
     try {
-      const updateFields = {
-        pancard: documentData.pancard,
-        adharFront: documentData.adharFront,
-        adharBack: documentData.adharBack,
-        updatedOn: Date.now()
-      };
-      Object.keys(updateFields).forEach(key => {
-        if (updateFields[key] === undefined) {
-          delete updateFields[key];
-        }
-      });
-      const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
-      if (!user) {
-        consoleManager.error("User not found for document update");
-        return null;
+      if (!files || Object.keys(files).length === 0) {
+        const error = new Error("No files were provided for upload.");
+        error.statusCode = 400;
+        throw error;
       }
-      consoleManager.log("User documents updated successfully");
-      return user;
+      
+      const updateFields = {};
+
+      // Process each potential file upload
+      if (files.pancard) {
+        const result = await uploadToCloudinary(files.pancard[0].path, 'user_documents');
+        updateFields.pancard = result.secure_url;
+        fs.unlinkSync(files.pancard[0].path); // Clean up the temporary file
+      }
+  
+      if (files.adharFront) {
+        const result = await uploadToCloudinary(files.adharFront[0].path, 'user_documents');
+        updateFields.adharFront = result.secure_url;
+        fs.unlinkSync(files.adharFront[0].path); // Clean up
+      }
+  
+      if (files.adharBack) {
+        const result = await uploadToCloudinary(files.adharBack[0].path, 'user_documents');
+        updateFields.adharBack = result.secure_url;
+        fs.unlinkSync(files.adharBack[0].path); // Clean up
+      }
+
+      // Only update if there are new URLs
+      if (Object.keys(updateFields).length > 0) {
+        updateFields.updatedOn = Date.now();
+        
+        const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
+        
+        if (!user) {
+          consoleManager.error("User not found for document update");
+          return null;
+        }
+
+        consoleManager.log("User documents updated successfully");
+        return user;
+      } else {
+        // This case should ideally not be hit if we check for files at the start, but it's good practice
+        consoleManager.log("No new document fields to update.");
+        return await User.findById(userId).select('-password');
+      }
     } catch (err) {
       consoleManager.error(`Error updating user documents: ${err.message}`);
       throw err;
