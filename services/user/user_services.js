@@ -292,26 +292,21 @@ class UserService {
       
       const updateFields = {};
 
-      // Process each potential file upload
+      // The middleware has already uploaded the file. 
+      // The `path` property now contains the final Cloudinary URL.
       if (files.pancard) {
-        const result = await uploadToCloudinary(files.pancard[0].path, 'user_documents');
-        updateFields.pancard = result.secure_url;
-        fs.unlinkSync(files.pancard[0].path); // Clean up the temporary file
+        updateFields.pancard = files.pancard[0].path;
       }
   
       if (files.adharFront) {
-        const result = await uploadToCloudinary(files.adharFront[0].path, 'user_documents');
-        updateFields.adharFront = result.secure_url;
-        fs.unlinkSync(files.adharFront[0].path); // Clean up
+        updateFields.adharFront = files.adharFront[0].path;
       }
   
       if (files.adharBack) {
-        const result = await uploadToCloudinary(files.adharBack[0].path, 'user_documents');
-        updateFields.adharBack = result.secure_url;
-        fs.unlinkSync(files.adharBack[0].path); // Clean up
+        updateFields.adharBack = files.adharBack[0].path;
       }
 
-      // Only update if there are new URLs
+      // Only update the database if there are new URLs
       if (Object.keys(updateFields).length > 0) {
         updateFields.updatedOn = Date.now();
         
@@ -325,7 +320,6 @@ class UserService {
         consoleManager.log("User documents updated successfully");
         return user;
       } else {
-        // This case should ideally not be hit if we check for files at the start, but it's good practice
         consoleManager.log("No new document fields to update.");
         return await User.findById(userId).select('-password');
       }
@@ -334,6 +328,7 @@ class UserService {
       throw err;
     }
   }
+
   
     async getNumberOfUsers() {
       try {

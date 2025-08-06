@@ -1,42 +1,31 @@
 import multer from 'multer';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-// Set up storage engine. We will use disk storage to temporarily save files.
-const storage = multer.diskStorage({
-  destination: './uploads/',
-  filename: function(req, file, cb){
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
+// Your Cloudinary configuration should already be in a file like `config/cloudinary.js`
+// and imported, but we'll re-state it here for clarity. This code assumes your
+// .env variables are loaded correctly.
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Initialize upload variable
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5000000 }, // Limit file size to 5MB
-  fileFilter: function(req, file, cb){
-    checkFileType(file, cb);
-  }
+// Configure the Cloudinary storage engine
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'user_documents', // The name of the folder in your Cloudinary account
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'], // Restrict file types
+  },
 });
 
-// Check File Type
-function checkFileType(file, cb){
-  // Allowed ext
-  const filetypes = /jpeg|jpg|png|gif/;
-  // Check ext
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  // Check mime
-  const mimetype = filetypes.test(file.mimetype);
+// Initialize Multer with the new Cloudinary storage engine
+const upload = multer({ storage: storage });
 
-  if(mimetype && extname){
-    return cb(null,true);
-  } else {
-    cb('Error: Images Only!');
-  }
-}
-
-// We will specify which fields to expect files from
+// Create and export the middleware for your specific form fields
 export const documentUpload = upload.fields([
-    { name: 'pancard', maxCount: 1 },
-    { name: 'adharFront', maxCount: 1 },
-    { name: 'adharBack', maxCount: 1 }
+  { name: 'pancard', maxCount: 1 },
+  { name: 'adharFront', maxCount: 1 },
+  { name: 'adharBack', maxCount: 1 },
 ]);
