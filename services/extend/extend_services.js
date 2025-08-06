@@ -5,8 +5,19 @@ import consoleManager from "../../utils/consoleManager.js";
 class ExtendService {
   async createExtend(userId) {
     try {
+      // 1. Find the user by their ID to get their current limit
+      const user = await User.findById(userId);
+
+      // Handle case where user might not be found
+      if (!user) {
+        consoleManager.error(`User with ID ${userId} not found.`);
+        throw new Error("User not found");
+      }
+
+      // 2. Prepare the extend data, now including the user's limit
       const extendData = {
         userId,
+        limit: user.limit, // <-- THIS IS THE NEW LINE
         createdOn: Date.now(),
         updatedOn: Date.now(),
         status: "pending"
@@ -15,13 +26,14 @@ class ExtendService {
       const extend = new Extend(extendData);
       await extend.save();
       
-      consoleManager.log("Extension request created successfully");
+      consoleManager.log("Extension request created successfully with user limit.");
       return extend;
     } catch (err) {
       consoleManager.error(`Error creating extension request: ${err.message}`);
       throw err;
     }
   }
+
 
   async getAllExtends() {
     try {
