@@ -13,10 +13,10 @@ const extendSchema = new mongoose.Schema({
       ref: 'User', // Assumes your User model is named 'User'
       required: true
   },
-//   amount: { 
-//     type: Number,
-//     required: false
-//   },
+  limit: { 
+    type: String,
+    required: false
+  },
   status: {
     type: String,
     required: false
