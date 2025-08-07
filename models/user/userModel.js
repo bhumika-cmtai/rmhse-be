@@ -88,6 +88,10 @@ const userSchema = new mongoose.Schema({
     required:false,
     default: 0
   },
+  memberId: {
+    type: String,
+    required: false
+  },
   dob: {
     type: String,
     required: false

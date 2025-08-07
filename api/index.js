@@ -3,6 +3,7 @@ import cors from "cors"
 import dotenv from "dotenv"
 import connectDB from "../database/db.js"
 import consoleManager from "../utils/consoleManager.js"
+
 dotenv.config();
 const app = express();
 
@@ -12,18 +13,7 @@ connectDB().catch((error) => {
   process.exit(1);
 });
 
-// CORS Configuration for credentialed requests
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow all origins for development
-      callback(null, true);
-    },
-    methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    allowedHeaders: "Content-Type,Authorization",
-    credentials: true, // Allow credentials (cookies, HTTP authentication)
-  })
-);
+app.use(cors())
 
 // Middleware
 app.use(express.json());

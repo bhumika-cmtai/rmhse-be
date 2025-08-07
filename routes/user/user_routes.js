@@ -210,7 +210,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 // This route is also protected
 router.put('/update-profile', authMiddleware, async (req, res) => {
     try {
-      const updatedUser = await UserService.updateUserProfile(req.user.id, req.body);
+      const updatedUser = await UserService.updateUser(req.user.id, req.body);
       if (updatedUser) {
         return ResponseManager.sendSuccess(res, updatedUser, 200, 'User profile updated successfully');
       } else {

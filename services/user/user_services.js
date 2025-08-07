@@ -49,6 +49,8 @@ class UserService {
 
   async updateUser(userId, data) {
     try {
+      console.log(userId)
+      console.log(data)
       data.updatedOn = Date.now();
       const user = await User.findByIdAndUpdate(userId, data, { new: true });
       console.log(user)
