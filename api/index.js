@@ -13,7 +13,25 @@ connectDB().catch((error) => {
   process.exit(1);
 });
 
-app.use(cors())
+// CORS Configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = ['http://localhost:3000', 'https://www.rmhse.org/'];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  maxAge: 600 // Cache preflight request for 10 minutes
+};
+
+app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json());
