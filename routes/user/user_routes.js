@@ -6,7 +6,7 @@ import consoleManager from "../../utils/consoleManager.js";
 import jwt from 'jsonwebtoken';
 import authMiddleware from '../../middleware/authMiddleware.js'; // Import the new middleware
 import User from '../../models/user/userModel.js'; 
-import { documentUpload } from '../../middleware/multer.js'
+import { documentUpload, profileImageUpload } from '../../middleware/multer.js'
 
 
 
@@ -164,6 +164,65 @@ router.get('/getAllUsers', async (req, res) => {
   }
 });
 
+router.get('/downline/:userId', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return ResponseManager.handleBadRequestError(res, 'User ID parameter is required.');
+    }
+    
+    // In a real-world scenario, you might add extra authorization here.
+    // For example, check if req.user.id is an admin or if req.user.id === userId
+    
+    const downline = await UserService.getReferredUsers(userId);
+
+    // The service returns an array, which could be empty. This is a successful state.
+    return ResponseManager.sendSuccess(res, downline, 200, 'Referred users retrieved successfully.');
+
+  } catch (err) {
+    console.error(`Error in /downline/:userId route:`, err);
+    const statusCode = err.statusCode || 500;
+    return ResponseManager.sendError(res, statusCode, 'DOWNLINE_FETCH_FAILED', err.message);
+  }
+});
+
+router.get('/commission-history', authMiddleware, async (req, res) => {
+  try {
+    // The user's ID is securely taken from their authentication token.
+    // This prevents them from requesting anyone else's data.
+    const userId = req.user.id;
+
+    const history = await UserService.getCommissionHistory(userId);
+    
+    return ResponseManager.sendSuccess(res, history, 200, 'Commission history retrieved successfully.');
+
+  } catch (err) {
+    console.error(`Error in /commission-history route:`, err);
+    const statusCode = err.statusCode || 500;
+    return ResponseManager.sendError(res, statusCode, 'HISTORY_FETCH_FAILED', err.message);
+  }
+});
+
+
+router.get('/commission-history/:userId', async (req, res) => {
+  try {
+    // Optional: Add a check to ensure only admins can access this
+    // if (req.user.role !== 'admin') {
+    //   return ResponseManager.sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view this data.');
+    // }
+
+    const { userId } = req.params;
+    const history = await UserService.getCommissionHistory(userId);
+    
+    return ResponseManager.sendSuccess(res, history, 200, 'Commission history retrieved successfully.');
+
+  } catch (err) {
+    console.error(`Error in /commission-history/:userId route:`, err);
+    const statusCode = err.statusCode || 500;
+    return ResponseManager.sendError(res, statusCode, 'HISTORY_FETCH_FAILED', err.message);
+  }
+});
 
 // POST /api/auth/user/login
 router.post('/login', async (req, res) => {
@@ -208,18 +267,51 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // PUT /api/auth/user/update-profile - Update profile for the logged-in user
 // This route is also protected
-router.put('/update-profile', authMiddleware, async (req, res) => {
+// This route correctly handles the update for personal details + profile image.
+router.put(
+  '/update-profile', 
+  authMiddleware,       // 1. Authenticate user
+  profileImageUpload,   // 2. Process a single file named 'profileImage'
+  async (req, res) => {
     try {
-      const updatedUser = await UserService.updateUser(req.user.id, req.body);
+      // 3. Pass req.body and req.file to the service. This is correct.
+      const updatedUser = await UserService.updateUserProfile(req.user.id, req.body, req.file);
+      
       if (updatedUser) {
         return ResponseManager.sendSuccess(res, updatedUser, 200, 'User profile updated successfully');
       } else {
         return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for update');
       }
     } catch (err) {
+      console.error(err);
       return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error updating user profile');
     }
 });
+
+
+// --- MODIFICATION START ---
+// PUT /api/auth/user/update-profile - Update profile (including image) for the logged-in user
+// --- MODIFICATION START ---
+// This route now uses the 'documentUpload' middleware, which matches the frontend.
+router.put('/update-details', 
+  authMiddleware,       // 1. Authenticate
+  documentUpload,       // 2. Use middleware for documents ONLY
+  async (req, res) => {
+    try {
+      // 3. The service receives text data (req.body) and document files (req.files)
+      const updatedUser = await UserService.updateUserDetails(req.user.id, req.body, req.files);
+      
+      if (updatedUser) {
+        return ResponseManager.sendSuccess(res, updatedUser, 200, 'User details and documents updated successfully');
+      } else {
+        return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for update');
+      }
+    } catch (err) {
+      console.error(err);
+      return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error updating user details');
+    }
+});
+// --- MODIFICATION END ---
 
 // PUT /api/auth/user/update-bank - Update bank details for the logged-in user
 // This route is also protected
@@ -257,6 +349,57 @@ router.put('/update-document',
       return ResponseManager.sendError(res, statusCode, 'INTERNAL_ERROR', message);
     }
 });
+
+
+// =================================================================
+// NEW ROUTE FOR ACTIVATING A USER AFTER PAYMENT
+// =================================================================
+router.put('/activate-user', async (req, res) => {
+  try {
+    const { userId, roleId, referredBy } = req.body;
+    
+    if (!userId || !roleId || !referredBy) {
+      return ResponseManager.handleBadRequestError(res, 'userId, roleId, and referredBy are required');
+    }
+
+    const activatedUser = await UserService.activateUser(userId, roleId, referredBy);
+
+    if (activatedUser) {
+      return ResponseManager.sendSuccess(res, activatedUser, 200, 'User activated successfully');
+    } else {
+      return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for activation');
+    }
+  } catch (err) {
+    console.error(err);
+    return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error activating user');
+  }
+});
+
+// NEW ROUTE: UPGRADE a user's role
+// =================================================================
+router.put('/upgrade-role', authMiddleware, async (req, res) => {
+  try {
+    // The user's ID is securely obtained from the auth token via the middleware
+    const userId = req.user.id;
+
+    const updatedUser = await UserService.upgradeUserRole(userId);
+
+    // If the service function succeeds, it returns the updated user object.
+    return ResponseManager.sendSuccess(res, updatedUser, 200, 'User role upgraded successfully.');
+
+  } catch (err) {
+    console.error(err); // Log the full error for debugging
+
+    // The service throws errors with specific status codes (404, 400).
+    // If no code is present, default to 500 for an internal server error.
+    const statusCode = err.statusCode || 500;
+    
+    // Provide a clear error code and message to the frontend.
+    return ResponseManager.sendError(res, statusCode, 'UPGRADE_FAILED', err.message);
+  }
+});
+
+
 
 router.get('/getUsersCount', async (req, res) => {
   try {

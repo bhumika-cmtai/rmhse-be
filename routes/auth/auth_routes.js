@@ -59,10 +59,10 @@ router.post("/login", async (req, res) => {
 
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, dob, phoneNumber, password, memberId, refferedBy } = req.body;
+    const { name, email, dob, phoneNumber, password } = req.body;
 
     // Validate request body
-    if (!name || !email || !dob || !phoneNumber || !password || !memberId || !refferedBy) {
+    if (!name || !email || !dob || !phoneNumber || !password) {
       return ResponseManager.handleBadRequestError(
         res,
         "All fields are required"
@@ -70,20 +70,18 @@ router.post("/signup", async (req, res) => {
     }
 
     // Create the new user
-    const newUser = await AuthService.signupUser({
+    const {user, token} = await AuthService.signupUser({
       name,
       email,
       dob,
       phoneNumber,
       password,
-      memberId,
-      refferedBy
     });
 
     // Send success response
     ResponseManager.sendSuccess(
       res,
-      { user: newUser },
+      { user, token },
       201,
       "User created successfully"
     );

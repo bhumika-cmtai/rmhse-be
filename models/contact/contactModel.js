@@ -23,7 +23,6 @@ const ContactSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['New', 'RegisterationDone', 'CallCut', 'CallNotPickUp', 'NotInterested', 'InvalidNumber'],
     default: 'New',
     required: false 
   },

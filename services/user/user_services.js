@@ -3,6 +3,8 @@ import consoleManager from "../../utils/consoleManager.js";
 // const User = require("../../models/user/userModel");
 // const consoleManager = require("../../utils/consoleManager");
 import { uploadToCloudinary } from '../../config/cloudinary.js';
+import generateRoleId from '../../utils/generateRoleId.js'
+import mongoose from "mongoose";
 import fs from 'fs';
 
 class UserService {
@@ -47,24 +49,100 @@ class UserService {
     }
   }
 
-  async updateUser(userId, data) {
+  async updateUserProfile(userId, profileData, file) {
     try {
-      console.log(userId)
-      console.log(data)
-      data.updatedOn = Date.now();
-      const user = await User.findByIdAndUpdate(userId, data, { new: true });
-      console.log(user)
+      const updateFields = {
+        name: profileData.name,
+        phoneNumber: profileData.phoneNumber,
+        permanentAddress: profileData.permanentAddress,
+        currentAddress: profileData.currentAddress,
+        dob: profileData.dob,
+        gender: profileData.gender,
+        emergencyNumber: profileData.emergencyNumber,
+        updatedOn: Date.now(),
+      };
+
+      // Only add the password to the update if it's a non-empty string
+      if (profileData.newPassword) {
+        // SECURITY WARNING: You should be hashing this password before saving!
+        // Example: updateFields.password = await bcrypt.hash(profileData.newPassword, 10);
+        updateFields.password = profileData.newPassword; 
+      }
+      
+      // If a new file was uploaded, add its path (the Cloudinary URL) to the update
+      if (file && file.path) {
+        updateFields.profileImage = file.path;
+        consoleManager.log(`Adding profile image to update: ${file.path}`);
+      }
+
+      // Remove any fields that were not provided to avoid overwriting with undefined
+      Object.keys(updateFields).forEach(key => {
+        if (updateFields[key] === undefined) {
+          delete updateFields[key];
+        }
+      });
+      
+      // Perform the database update with all the collected fields
+      const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
+      
       if (!user) {
-        consoleManager.error("User not found for update");
+        consoleManager.error("User not found for profile update");
         return null;
       }
-      consoleManager.log("User updated successfully");
+      
+      consoleManager.log("User profile updated successfully");
       return user;
     } catch (err) {
-      consoleManager.error(`Error updating user: ${err.message}`);
+      consoleManager.error(`Error updating user profile: ${err.message}`);
       throw err;
     }
   }
+  // --- MODIFICATION END ---
+
+  // --- MODIFICATION START ---
+  // A specific service for updating user text details and documents.
+  async updateUserDetails(userId, detailsData, files) {
+    try {
+      const updateFields = {
+        currentAddress: detailsData.currentAddress,
+        permanentAddress: detailsData.permanentAddress,
+        emergencyNumber: detailsData.emergencyNumber,
+      };
+
+      // Check for document files ONLY.
+      if (files) {
+        if (files.pancard && files.pancard[0]) {
+          updateFields.pancard = files.pancard[0].path;
+        }
+        if (files.adharFront && files.adharFront[0]) {
+          updateFields.adharFront = files.adharFront[0].path;
+        }
+        if (files.adharBack && files.adharBack[0]) {
+          updateFields.adharBack = files.adharBack[0].path;
+        }
+      }
+
+      updateFields.updatedOn = Date.now();
+
+      Object.keys(updateFields).forEach(key => {
+        if (updateFields[key] === undefined) delete updateFields[key];
+      });
+      
+      const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
+      if (!user) {
+        return null;
+      }
+      console.log("update details user", user)
+      
+      consoleManager.log("User details and documents updated successfully");
+      return user;
+    } catch (err) {
+      console.log("err in update details",err)
+      consoleManager.error(`Error updating user details: ${err.message}`);
+      throw err;
+    }
+  }
+  // --- MODIFICATION END ---
 
   async deleteUser(userId) {
     try {
@@ -153,8 +231,8 @@ class UserService {
         pipeline.push({ $match: matchStage });
       }
 
-      // Sort by the createdOnDate field for correct ordering
-      pipeline.push({ $sort: { createdOnDate: -1 } });
+             // Sort by the createdOnDate field for correct ordering (oldest first)
+       pipeline.push({ $sort: { createdOnDate: 1 } });
 
       // Create a separate pipeline for counting
       const countPipeline = [...pipeline]; // Copy the pipeline
@@ -192,6 +270,122 @@ class UserService {
   }
   
 
+  async getReferredUsers(userId) {
+    try {
+      // Step 1: Find the source user to get their roleId array
+      const sourceUser = await User.findById(userId).lean(); // .lean() for a plain JS object
+
+      if (!sourceUser) {
+        const error = new Error("Source user not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // Step 2: Check if the user has any roleIds to search for. If not, they have no referrals.
+      if (!sourceUser.roleId || sourceUser.roleId.length === 0) {
+        consoleManager.log(`User ${sourceUser.email} has no roleIds, so no referrals found.`);
+        return []; // Return an empty array
+      }
+
+      // Step 3: Use an aggregation pipeline to find and format the downline users
+      const pipeline = [
+        // Stage 1: Find all users whose 'refferedBy' field is one of the sourceUser's roleIds
+        {
+          $match: {
+            'refferedBy': { $in: sourceUser.roleId }
+          }
+        },
+        // Stage 2: Add a new field 'latestRoleId' by taking the last element of the roleId array
+        {
+          $addFields: {
+            latestRoleId: { $arrayElemAt: ["$roleId", -1] }
+          }
+        },
+        // Stage 3: Project only the fields that are required in the final output
+        {
+          $project: {
+            _id: 1, // Usually good to keep the ID
+            name: 1,
+            phoneNumber: 1,
+            status: 1,
+            latestRoleId: 1
+          }
+        }
+      ];
+
+      const referredUsers = await User.aggregate(pipeline);
+
+      consoleManager.log(`Found ${referredUsers.length} users referred by ${sourceUser.email}.`);
+      
+      return referredUsers;
+
+    } catch (err) {
+      consoleManager.error(`Error in getReferredUsers service: ${err.message}`);
+      throw err; // Re-throw the error to be handled by the route handler
+    }
+  }
+
+  async getCommissionHistory(userId) {
+    try {
+      // 1. Validate and convert the incoming string ID to a proper ObjectId
+      // This is still the correct and necessary way to handle route parameters.
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        consoleManager.error("Invalid user ID format provided.");
+        return [];
+      }
+      const userObjectId = new mongoose.Types.ObjectId(userId);
+
+      // 2. The aggregation pipeline now works seamlessly
+      const pipeline = [
+        {
+          $match: {
+            _id: userObjectId
+          }
+        },
+        {
+          $unwind: "$commision"
+        },
+        // This $lookup is now highly efficient because it matches ObjectId to ObjectId
+        {
+          $lookup: {
+            from: "users",
+            localField: "commision.userId", // This is now an ObjectId
+            foreignField: "_id",            // This is also an ObjectId
+            as: "sourceUserInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$sourceUserInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            amount: "$commision.amount",
+            sourceUserName: { $ifNull: [ "$sourceUserInfo.name", "A Deleted User" ] },
+            sourceUserLatestRoleId: {
+              $ifNull: [ { $arrayElemAt: [ "$sourceUserInfo.roleId", -1 ] }, "N/A" ]
+            }
+          }
+        },
+        {
+          $sort: { amount: -1 }
+        }
+      ];
+
+      const commissionHistory = await User.aggregate(pipeline);
+      
+      consoleManager.log(`Fetched ${commissionHistory.length} commission records for user ${userId}.`);
+      return commissionHistory;
+
+    } catch (err) {
+      consoleManager.error(`Error in getCommissionHistory service: ${err.message}`);
+      throw err;
+    }
+  }
+
   async getNumberOfUsers() {
     try {
       const count = await User.countDocuments();
@@ -199,22 +393,6 @@ class UserService {
       return count;
     } catch (err) {
       consoleManager.error(`Error counting users: ${err.message}`);
-      throw err;
-    }
-  }
-  async getLeaderCode(leaderCode){
-    try{
-      const user = await User.findOne(
-        { leaderCode: leaderCode },
-        'name leaderCode -_id' 
-      );
-     if (!user) {
-        consoleManager.error("Leader Code not found");
-        return null;
-      }
-      return user;
-    } catch (err) {
-      consoleManager.error(`Error fetching Leader Code from user: ${err.message}`);
       throw err;
     }
   }
@@ -250,6 +428,7 @@ class UserService {
       throw err;
     }
   }
+
 
   // =================================================================
   // NEW FUNCTION FOR UPDATING BANK DETAILS
@@ -313,6 +492,136 @@ class UserService {
   }
 
 
+  // =================================================================
+  // NEW FUNCTION FOR DISTRIBUTING COMMISSION
+  // =================================================================
+  async distributeIncome(initialReferrerRoleId, sourceUserId) {
+    try {
+      if (!initialReferrerRoleId || initialReferrerRoleId === "admin123") {
+        consoleManager.log("No valid referrer provided, skipping commission distribution.");
+        return;
+      }
+      
+      // Add a check for the source user ID
+      if (!sourceUserId) {
+          consoleManager.error("Source User ID was not provided to distributeIncome. Aborting.");
+          return;
+      }
+
+      const TOTAL_COMMISSION_BUDGET = 350;
+      const BM_PAYOUT = 10;
+      const referralPayouts = {
+        "DIV": 70,
+        "DIST": 40,
+        "STAT": 20,
+      };
+
+      let totalPaidOut = 0;
+      let currentReferrerRoleId = initialReferrerRoleId;
+      let safetyCounter = 0;
+
+      consoleManager.log(`Starting commission distribution for user ${sourceUserId}, chain starts with: ${currentReferrerRoleId}`);
+
+      // --- 1. Pay out the direct referral chain ---
+      while (currentReferrerRoleId && currentReferrerRoleId !== "admin123" && safetyCounter < 10) {
+        const referrer = await User.findOne({ roleId: currentReferrerRoleId });
+        if (!referrer) {
+          consoleManager.warn(`Referrer with roleId '${currentReferrerRoleId}' not found. Stopping chain.`);
+          break;
+        }
+
+        // Find the user whose refferedBy contains the current referrer's roleId
+        // This is the user who should be credited in the commission object
+        const userWithReferrer = await User.findOne({ refferedBy: currentReferrerRoleId });
+        const commissionUserId = userWithReferrer ? userWithReferrer._id : sourceUserId;
+
+        const payout = referralPayouts[referrer.role];
+        if (payout) {
+          // Create the commission object with the correct userId
+          const commissionObject = { amount: payout, userId: commissionUserId };
+          await User.findByIdAndUpdate(referrer._id, { $push: { commision: commissionObject } });
+          totalPaidOut += payout;
+          consoleManager.log(`Pushed commission of ${payout} (from user ${commissionUserId}) to ${referrer.role} user: ${referrer.email}.`);
+        }
+        
+        if (referrer.role === "STAT") {
+            break;
+        }
+        
+        currentReferrerRoleId = referrer.refferedBy;
+        safetyCounter++;
+      }
+      
+      // --- 2. Pay out to ALL BM users ---
+      const bmUsers = await User.find({ role: "BM" });
+      if (bmUsers.length > 0) {
+        for (const bmUser of bmUsers) {
+          const commissionObject = { amount: BM_PAYOUT, userId: sourceUserId };
+          await User.findByIdAndUpdate(bmUser._id, { $push: { commision: commissionObject } });
+          totalPaidOut += BM_PAYOUT;
+        }
+        consoleManager.log(`Pushed commission of ${BM_PAYOUT} (from user ${sourceUserId}) to each of the ${bmUsers.length} BM users.`);
+      }
+
+      // --- 3. Pay any final remaining amount to the Admin ---
+      const adminAmount = TOTAL_COMMISSION_BUDGET - totalPaidOut;
+      if (adminAmount > 0) {
+        const adminUser = await User.findOne({ role: "admin" });
+        if (adminUser) {
+          const commissionObject = { amount: adminAmount, userId: sourceUserId };
+          await User.findByIdAndUpdate(adminUser._id, { $push: { commision: commissionObject } });
+          consoleManager.log(`Pushed remaining commission of ${adminAmount} (from user ${sourceUserId}) to admin user: ${adminUser.email}`);
+        } else {
+            consoleManager.warn(`Admin user not found to pay the final remaining amount.`);
+        }
+      }
+
+      consoleManager.log("Commission distribution completed.");
+    } catch (error) {
+      consoleManager.error(`Error during commission distribution: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // =================================================================
+  // MODIFIED FUNCTION: ACTIVATE USER
+  // =================================================================
+  async activateUser(userId, roleId, referredBy) {
+    try {
+      const updateFields = {
+        refferedBy: referredBy,
+        status: 'active',
+        role: 'MEM',
+        paymentStatus: 'completed',
+        updatedOn: Date.now(),
+      };
+      
+      const user = await User.findByIdAndUpdate(
+        userId, 
+        { 
+          $set: updateFields,
+          $push: { roleId: roleId }
+        }, 
+        { new: true }
+      ).select('-password');
+
+      if (!user) {
+        consoleManager.error("User not found for activation");
+        return null;
+      }
+      
+      consoleManager.log("User activated successfully. Now distributing income...");
+      
+      // --- TRIGGER COMMISSION DISTRIBUTION ---
+      // Pass both the referrer's role ID and the new user's own ID
+      await this.distributeIncome(user.refferedBy, user._id);
+
+      return user;
+    } catch (err) {
+      consoleManager.error(`Error activating user: ${err.message}`);
+      throw err;
+    }
+  }
   
     async getNumberOfUsers() {
       try {
@@ -369,6 +678,108 @@ class UserService {
       throw err;
       }
     }
+
+    // NEW SERVICE: UPGRADE USER's ROLE
+  // =================================================================
+  async upgradeUserRole(userId) {
+    try {
+      // 1. Define the upgrade and referrer hierarchies for clarity and maintenance
+      const upgradeHierarchy = {
+        'MEM': 'DIV',
+        'DIV': 'DIST',
+        'DIST': 'STAT'
+      };
+      
+      const referrerRoleHierarchy = {
+        'DIV': 'DIST', // A new DIV user is referred by a random DIST user
+        'DIST': 'STAT'  // A new DIST user is referred by a random STAT user
+      };
+
+      // 2. Find the current user
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        const error = new Error("User not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // 3. Determine the user's next role
+      const nextRole = upgradeHierarchy[currentUser.role];
+      if (!nextRole) {
+        const error = new Error("You are already at the highest role or your current role cannot be upgraded.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // --- NEW LOGIC: FIND THE NEW REFERRER ---
+      let newReferredBy = null;
+      const targetReferrerRole = referrerRoleHierarchy[nextRole];
+      
+      if (targetReferrerRole) {
+        // Find all users who can act as a referrer (e.g., all 'DIST' users)
+        const potentialReferrers = await User.find({ role: targetReferrerRole });
+
+        if (potentialReferrers.length === 0) {
+          // This is a critical business logic failure. An upgrade cannot proceed without an upline.
+          const error = new Error(`Cannot complete upgrade because no users with the required referrer role ('${targetReferrerRole}') were found.`);
+          error.statusCode = 409; // 409 Conflict is a good status for a business logic error
+          throw error;
+        }
+
+        // Randomly select one of these users
+        const randomIndex = Math.floor(Math.random() * potentialReferrers.length);
+        const randomReferrer = potentialReferrers[randomIndex];
+
+        // Ensure the selected referrer has a valid roleId history
+        if (!randomReferrer.roleId || randomReferrer.roleId.length === 0) {
+            const error = new Error(`Data integrity error: The selected referrer (${randomReferrer.email}) has no role ID history.`);
+            error.statusCode = 500;
+            throw error;
+        }
+
+        // Assign the latest roleId of the randomly selected referrer
+        newReferredBy = randomReferrer.roleId[randomReferrer.roleId.length - 1];
+        consoleManager.log(`Assigning new referrer for user ${currentUser.email}. New referrer roleId: ${newReferredBy}`);
+
+      } else {
+        // This case handles a user becoming 'STAT', who is at the top of the chain
+        newReferredBy = 'admin123'; // Or null, depending on your system's design for top-level users
+        consoleManager.log(`User ${currentUser.email} is becoming a STAT, assigning admin as referrer.`);
+      }
+      // --- END OF NEW LOGIC ---
+
+      // 5. Generate the new roleId for the user who is upgrading
+      const newRoleId = generateRoleId(nextRole);
+
+      // 6. Perform the atomic update in the database with all new fields
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: { 
+            role: nextRole,           // Set the new primary role
+            refferedBy: newReferredBy // Set the new referrer ID
+          },      
+          $push: { roleId: newRoleId }  // Add the new roleId to the user's history
+        },
+        { new: true } // Return the modified document
+      ).select('-password');
+
+      if (!updatedUser) {
+          const error = new Error("Failed to update user during upgrade.");
+          error.statusCode = 500;
+          throw error;
+      }
+
+      consoleManager.log(`User ${currentUser.email} successfully upgraded from ${currentUser.role} to ${nextRole}.`);
+      
+      return updatedUser; // Return the full, updated user object to the frontend
+
+    } catch (err) {
+      // Catch and re-throw errors to be handled by the route
+      consoleManager.error(`Error in upgradeUserRole service: ${err.message}`);
+      throw err;
+    }
+  }
 
 }
 

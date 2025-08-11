@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false
   },
+
   gender: {
     type: String,
     required: false
@@ -53,6 +54,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
     // default: "user"
+  },
+  profileImage: {
+    type:String,
+    required: false
   },
   adharFront: {
     type: String,
@@ -88,6 +93,24 @@ const userSchema = new mongoose.Schema({
     required:false,
     default: 0
   },
+  commision: {
+    type: [{
+      userId: { // The ID of the user who generated the commission (the new member)
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      amount: {
+        type: Number,
+        required: true
+      },
+      // We add _id: false to prevent Mongoose from creating a unique _id for each commission sub-document
+      _id: false 
+    }],
+    required: false,
+    default: []
+  },
+
   memberId: {
     type: String,
     required: false
@@ -109,6 +132,14 @@ const userSchema = new mongoose.Schema({
     type:String,
     required: false
   },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'completed'],
+    default: 'pending'
+  },
+  razorpay_order_id: { type: String },
+  razorpay_payment_id: { type: String },
+  razorpay_signature: { type: String },
 
 });
 
