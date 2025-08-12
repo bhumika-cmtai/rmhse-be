@@ -24,7 +24,7 @@ class AuthService {
     // If we reach this point, authentication was successful for either admin or non-admin.
 
     // Create JWT payload and token
-    const payload = { id: user._id, role: user.role, email: user.email, name: user.name };
+    const payload = { id: user._id, role: user.role, email: user.email, name: user.name, status: user.status };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: '30d',
     });
@@ -42,7 +42,7 @@ class AuthService {
   }
 }
 
-  async signupUser({ name, email, dob, phoneNumber, password }) {
+  async signupUser({ name, email, dob, phoneNumber, password, status }) {
     try {
       // Check if a user with the given email already exists
       const existingUser = await User.findOne({ email });
@@ -64,6 +64,7 @@ class AuthService {
         phoneNumber,
         password, // Storing plain text password - NOT FOR PRODUCTION
         role: "MEM", // Default role for new signups,
+        status,
         createdOn: date,
         updatedOn: date
 
@@ -76,7 +77,7 @@ class AuthService {
 
       // --- MODIFICATION START ---
       // Create JWT payload and token for the new user
-      const payload = { id: newUser._id, role: newUser.role, email: newUser.email, name: newUser.name };
+      const payload = { id: newUser._id, role: newUser.role, email: newUser.email, name: newUser.name, status: newUser.status };
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '30d',
       });

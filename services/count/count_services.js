@@ -59,9 +59,9 @@ class CountService {
     }
   }
 
-  async fetchTotalRegularUser() {
+  async fetchTotalMember() {
     try {
-      const count = await User.countDocuments({ role: "user" });
+      const count = await User.countDocuments({ role: "MEM" });
       consoleManager.log(`Total regular users count: ${count}`);
       return count;
     } catch (err) {

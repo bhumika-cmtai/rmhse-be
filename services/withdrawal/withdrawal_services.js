@@ -54,27 +54,28 @@ class WithdrawalService {
         consoleManager.error("Withdrawal not found for update");
         return null;
       }
+      console.log("-------withdrawal-------", withdrawal)
 
       // --- NEW LOGIC STARTS HERE ---
 
       // 2. Check if the status is 'approved'
       if (updateData.status === 'approved') {
-        // 3. Find the associated user
-        const user = await User.findById(withdrawal.userId);
+        // Use findByIdAndUpdate with $inc to atomically decrement the user's income.
+        // This is safer and more efficient than find, modify, and save.
+        const updatedUser = await User.findByIdAndUpdate(
+          withdrawal.userId,
+          { $inc: { income: -withdrawal.amount } }, // Use $inc with a negative value to subtract
+          { new: true } // Optional: returns the updated user document
+        );
 
-        if (user) {
-          // 4. Update the user's income by adding the withdrawal amount
-          user.income = (user.income || 0) - withdrawal.amount;
-          
-          // 5. Save the updated user document
-          await user.save();
-          consoleManager.log(`Income updated for user ${user._id}`);
+        if (updatedUser) {
+          consoleManager.log(`Income successfully updated for user ${updatedUser._id}. New balance: ${updatedUser.income}`);
         } else {
           consoleManager.error(`User not found for income update: ${withdrawal.userId}`);
+          // Note: Even if the user is not found, the withdrawal status is still updated.
+          // You might want to add logic here to handle this case, e.g., by reverting the status.
         }
       }
-
-      // --- NEW LOGIC ENDS HERE ---
       
       consoleManager.log("Withdrawal updated successfully");
       return withdrawal;

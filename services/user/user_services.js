@@ -50,7 +50,9 @@ class UserService {
   }
 
   async updateUserProfile(userId, profileData, file) {
+    consoleManager.log("---- updatedUserProfile triggered ---- ")
     try {
+      console.log("profileData",profileData)
       const updateFields = {
         name: profileData.name,
         phoneNumber: profileData.phoneNumber,
@@ -61,6 +63,8 @@ class UserService {
         emergencyNumber: profileData.emergencyNumber,
         updatedOn: Date.now(),
       };
+      // console.log("----updatefiled----",updateFields)
+      // console.log("----file----",file)
 
       // Only add the password to the update if it's a non-empty string
       if (profileData.newPassword) {
@@ -90,7 +94,7 @@ class UserService {
         return null;
       }
       
-      consoleManager.log("User profile updated successfully");
+      consoleManager.log("User profile updated successfully---");
       return user;
     } catch (err) {
       consoleManager.error(`Error updating user profile: ${err.message}`);
@@ -143,6 +147,46 @@ class UserService {
     }
   }
   // --- MODIFICATION END ---
+
+
+  async updateUserByAdmin(userId, userData) {
+    try {
+      const updateFields = { ...userData };
+
+      // If a new password is provided in the form, it will be in `userData.password`.
+      // The backend service should handle hashing it before saving.
+      // NOTE: For security, you should hash this password.
+      if (updateFields.password) {
+        // Example with bcrypt (recommended):
+        // const salt = await bcrypt.genSalt(10);
+        // updateFields.password = await bcrypt.hash(updateFields.password, salt);
+      } else {
+        // If the password field is empty, remove it so it doesn't overwrite the existing one.
+        delete updateFields.password;
+      }
+
+      // Ensure fields that shouldn't be directly updated by an admin are removed.
+      delete updateFields._id;
+      delete updateFields.createdOn;
+
+      updateFields.updatedOn = Date.now();
+      
+      const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true }).select('-password');
+      
+      if (!user) {
+        consoleManager.error("User not found for admin update");
+        return null;
+      }
+      
+      consoleManager.log("User profile updated successfully by admin");
+      return user;
+    } catch (err) {
+      consoleManager.error(`Error updating user by admin: ${err.message}`);
+      throw err;
+    }
+  }
+
+
 
   async deleteUser(userId) {
     try {
@@ -308,7 +352,8 @@ class UserService {
             name: 1,
             phoneNumber: 1,
             status: 1,
-            latestRoleId: 1
+            latestRoleId: 1,
+            income: 1
           }
         }
       ];
@@ -397,37 +442,37 @@ class UserService {
     }
   }
 
-  async updateUserProfile(userId, profileData) {
-    try {
-      const updateFields = {
-        name: profileData.name,
-        whatsappNumber: profileData.whatsappNumber,
-        city: profileData.city,
-        bio: profileData.bio,
-        updatedOn: Date.now(),
-        password: profileData.password
-      };
+  // async updateUserProfile(userId, profileData) {
+  //   try {
+  //     const updateFields = {
+  //       name: profileData.name,
+  //       whatsappNumber: profileData.whatsappNumber,
+  //       city: profileData.city,
+  //       bio: profileData.bio,
+  //       updatedOn: Date.now(),
+  //       password: profileData.password
+  //     };
 
-      // Remove any fields that were not provided in the request body
-      Object.keys(updateFields).forEach(key => {
-        if (updateFields[key] === undefined) {
-          delete updateFields[key];
-        }
-      });
+  //     // Remove any fields that were not provided in the request body
+  //     Object.keys(updateFields).forEach(key => {
+  //       if (updateFields[key] === undefined) {
+  //         delete updateFields[key];
+  //       }
+  //     });
       
-      const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true });
-      if (!user) {
-        consoleManager.error("User not found for profile update");
-        return null;
-      }
+  //     const user = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true });
+  //     if (!user) {
+  //       consoleManager.error("User not found for profile update");
+  //       return null;
+  //     }
       
-      consoleManager.log("User profile updated successfully");
-      return user;
-    } catch (err) {
-      consoleManager.error(`Error updating user profile: ${err.message}`);
-      throw err;
-    }
-  }
+  //     consoleManager.log("User profile updated successfully --- -- -- ");
+  //     return user;
+  //   } catch (err) {
+  //     consoleManager.error(`Error updating user profile: ${err.message}`);
+  //     throw err;
+  //   }
+  // }
 
 
   // =================================================================
@@ -539,6 +584,11 @@ class UserService {
         if (payout) {
           // Create the commission object with the correct userId
           const commissionObject = { amount: payout, userId: commissionUserId };
+          // --- MODIFICATION: Atomically increment income and push commission ---
+          await User.findByIdAndUpdate(referrer._id, { 
+            $push: { commision: commissionObject },
+            $inc: { income: payout } // Add the commission amount to the income field
+          });
           await User.findByIdAndUpdate(referrer._id, { $push: { commision: commissionObject } });
           totalPaidOut += payout;
           consoleManager.log(`Pushed commission of ${payout} (from user ${commissionUserId}) to ${referrer.role} user: ${referrer.email}.`);
@@ -557,6 +607,11 @@ class UserService {
       if (bmUsers.length > 0) {
         for (const bmUser of bmUsers) {
           const commissionObject = { amount: BM_PAYOUT, userId: sourceUserId };
+          // --- MODIFICATION: Atomically increment income and push commission ---
+          await User.findByIdAndUpdate(bmUser._id, { 
+            $push: { commision: commissionObject },
+            $inc: { income: BM_PAYOUT } // Add the commission amount to the income field
+          });
           await User.findByIdAndUpdate(bmUser._id, { $push: { commision: commissionObject } });
           totalPaidOut += BM_PAYOUT;
         }
@@ -622,6 +677,43 @@ class UserService {
       throw err;
     }
   }
+
+  async countReferredUsers(userId) {
+    try {
+      // Step 1: Find the user to get their roleId array. .lean() is efficient for read-only operations.
+      const sourceUser = await User.findById(userId).lean();
+
+      // Step 2: Handle cases where the user doesn't exist.
+      if (!sourceUser) {
+        consoleManager.error(`User not found for referral count: ${userId}`);
+        // Throw an error that the route can catch and convert to a 404 response.
+        throw new Error("User not found.");
+      }
+
+      // Step 3: Handle cases where the user has no roleIds. They can't have referrals.
+      if (!sourceUser.roleId || sourceUser.roleId.length === 0) {
+        consoleManager.log(`User ${userId} has no roleIds, referral count is 0.`);
+        return 0;
+      }
+
+      // Step 4: Use the efficient `countDocuments` to find all users whose 'refferedBy' field
+      // contains any of the IDs from the source user's roleId array.
+      const count = await User.countDocuments({
+        'refferedBy': { $in: sourceUser.roleId }
+      });
+
+      consoleManager.log(`Found ${count} users referred by user ${userId}.`);
+      
+      return count;
+
+    } catch (err) {
+      // Re-throw other errors to be handled by the route handler.
+      consoleManager.error(`Error in countReferredUsers service: ${err.message}`);
+      throw err;
+    }
+  }
+
+
   
     async getNumberOfUsers() {
       try {

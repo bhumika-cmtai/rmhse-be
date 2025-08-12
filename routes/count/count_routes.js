@@ -111,9 +111,9 @@ router.get('/fetchTotalSTAT', async (req, res) => {
 });
 
 // Fetch total regular users
-router.get('/fetchTotalRegularUser', async (req, res) => {
+router.get('/fetchTotalMEM', async (req, res) => {
   try {
-    const count = await CountService.fetchTotalRegularUser();
+    const count = await CountService.fetchTotalMember();
     return ResponseManager.sendSuccess(
       res, 
       { count }, 

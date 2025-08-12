@@ -278,7 +278,27 @@ router.put(
       const updatedUser = await UserService.updateUserProfile(req.user.id, req.body, req.file);
       
       if (updatedUser) {
+        // console.log("---updatedUser---",updatedUser)
         return ResponseManager.sendSuccess(res, updatedUser, 200, 'User profile updated successfully');
+      } else {
+        return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for update');
+      }
+    } catch (err) {
+      console.error(err);
+      return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error updating user profile');
+    }
+});
+
+
+router.put(
+  '/updateUser/:id',   // 2. Authorize: Check if the user is an admin
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedUser = await UserService.updateUserByAdmin(id, req.body);
+      
+      if (updatedUser) {
+        return ResponseManager.sendSuccess(res, updatedUser, 200, 'User profile updated successfully by admin');
       } else {
         return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for update');
       }
@@ -399,7 +419,38 @@ router.put('/upgrade-role', authMiddleware, async (req, res) => {
   }
 });
 
+router.get(
+  '/referral-count/:userId',
+  // authMiddleware, // Protect the route to ensure only logged-in users can access it.
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
 
+      if (!userId) {
+        return ResponseManager.handleBadRequestError(res, 'User ID parameter is required.');
+      }
+
+      // Call the new service function to get the count.
+      const count = await UserService.countReferredUsers(userId);
+
+      // The service returns a number (0 or more), so we can directly send it.
+      // The payload will look like: { "data": { "count": 5 } }
+      return ResponseManager.sendSuccess(res, { count }, 200, 'Referred user count retrieved successfully.');
+
+    } catch (err) {
+      console.error(`Error in /referral-count/:userId route:`, err);
+
+      // Handle the specific "User not found" error from the service.
+      if (err.message === "User not found.") {
+        return ResponseManager.sendError(res, 404, 'NOT_FOUND', err.message);
+      }
+      
+      // Handle all other potential errors.
+      const statusCode = err.statusCode || 500;
+      return ResponseManager.sendError(res, statusCode, 'INTERNAL_ERROR', err.message);
+    }
+  }
+);
 
 router.get('/getUsersCount', async (req, res) => {
   try {

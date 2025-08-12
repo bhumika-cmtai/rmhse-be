@@ -58,6 +58,7 @@ import extendRoute from "../routes/extend/extend_routes.js"
 import videoRoute from "../routes/video/videoRoutes.js"
 import notificationRoute from "../routes/notification/notificationRoutes.js"
 import contactRoute from "../routes/contact/contact_routes.js"
+// import countRoute from "../routes/count/count_routes.js"
 
 app.use("/v1/auth", authRoute);
 app.use("/v1/users", userRoute);
@@ -67,6 +68,8 @@ app.use("/v1/count", countRoute);
 app.use("/v1/video", videoRoute);
 app.use("/v1/notifications", notificationRoute);
 app.use("/v1/contacts", contactRoute)
+app.use("/v1/counts", countRoute)
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
