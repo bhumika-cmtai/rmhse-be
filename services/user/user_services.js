@@ -6,6 +6,7 @@ import { uploadToCloudinary } from '../../config/cloudinary.js';
 import generateRoleId from '../../utils/generateRoleId.js'
 import mongoose from "mongoose";
 import fs from 'fs';
+import { Console } from "console";
 
 class UserService {
   async createUser(data) {
@@ -804,7 +805,7 @@ class UserService {
       }
 
       // --- NEW LOGIC: FIND THE NEW REFERRER ---
-      let newReferredBy = null;
+      let newReferredBy = "ADMIN001";
       const targetReferrerRole = referrerRoleHierarchy[nextRole];
       
       if (targetReferrerRole) {
@@ -817,12 +818,32 @@ class UserService {
           error.statusCode = 409; // 409 Conflict is a good status for a business logic error
           throw error;
         }
+        // --- NEW LOGIC: VERIFY REFERRAL LIMITS ---
+                // 2. Fetch the current referral count for each potential referrer
+                const referrersWithCounts = await Promise.all(
+                  potentialReferrers.map(async (referrer) => {
+                      const count = await this.countReferredUsers(referrer._id);
+                      return { referrer, count };
+                  })
+              );
+
+              // 3. Filter down to only those who are below their limit
+              const eligibleReferrers = referrersWithCounts.filter(item => {
+                  const limit = item.referrer.limit || 25; // Use default limit if not set
+                  return item.count < limit;
+              });
+              console.log("-----eligibleReferrers-----",eligibleReferrers)
+              if (eligibleReferrers.length === 0) {
+                  throw new Error(`All available referrers in the '${targetReferrerRole}' tier have reached their capacity. Please contact support.`);
+              }
+              // --- END OF NEW LOGIC ---
 
         // Randomly select one of these users
         const randomIndex = Math.floor(Math.random() * potentialReferrers.length);
         const randomReferrer = potentialReferrers[randomIndex];
 
         // Ensure the selected referrer has a valid roleId history
+        console.log(randomReferrer)
         if (!randomReferrer.roleId || randomReferrer.roleId.length === 0) {
             const error = new Error(`Data integrity error: The selected referrer (${randomReferrer.email}) has no role ID history.`);
             error.statusCode = 500;
@@ -835,7 +856,7 @@ class UserService {
 
       } else {
         // This case handles a user becoming 'STAT', who is at the top of the chain
-        newReferredBy = 'admin123'; // Or null, depending on your system's design for top-level users
+        newReferredBy = 'ADMIN001'; // Or null, depending on your system's design for top-level users
         consoleManager.log(`User ${currentUser.email} is becoming a STAT, assigning admin as referrer.`);
       }
       // --- END OF NEW LOGIC ---
