@@ -590,7 +590,7 @@ class UserService {
             $push: { commision: commissionObject },
             $inc: { income: payout } // Add the commission amount to the income field
           });
-          await User.findByIdAndUpdate(referrer._id, { $push: { commision: commissionObject } });
+          // await User.findByIdAndUpdate(referrer._id, { $push: { commision: commissionObject } });
           totalPaidOut += payout;
           consoleManager.log(`Pushed commission of ${payout} (from user ${commissionUserId}) to ${referrer.role} user: ${referrer.email}.`);
         }
