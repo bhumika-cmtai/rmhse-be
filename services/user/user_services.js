@@ -1,4 +1,5 @@
 import User from "../../models/user/userModel.js"
+import Counter from "../../models/counter/counterModel.js";
 import consoleManager from "../../utils/consoleManager.js";
 // const User = require("../../models/user/userModel");
 // const consoleManager = require("../../utils/consoleManager");
@@ -18,6 +19,11 @@ class UserService {
         error.statusCode = 409; 
         throw error;
       }
+
+      const ids = await this.generateId(data.role)
+      data.joinId = ids.joinId;
+      data.roleId = [ids.roleId];
+
       data.createdOn =  Date.now();
       data.updatedOn =  Date.now();
 
@@ -266,6 +272,7 @@ class UserService {
           { name: { $regex: searchQuery, $options: 'i' } },
           { phoneNumber: { $regex: searchQuery, $options: 'i' } },
           { role: { $regex: searchQuery, $options: 'i' } },
+          { joinId : {$regex: searchQuery, $options: 'i'}},
           { "roleId": { $elemMatch: { $regex: searchQuery, $options: 'i' } } },
           { latestRoleId: { $regex: searchQuery, $options: 'i' } }
         ];
@@ -642,21 +649,26 @@ class UserService {
   // =================================================================
   // MODIFIED FUNCTION: ACTIVATE USER
   // =================================================================
-  async activateUser(userId, roleId, referredBy) {
+  async activateUser(userId, refferedBy) {
     try {
+      console.log("---refferredBy---", refferedBy)
       const updateFields = {
-        refferedBy: referredBy,
+        refferedBy: refferedBy,
         status: 'active',
         role: 'MEM',
         paymentStatus: 'completed',
         updatedOn: Date.now(),
       };
-      
+      const ids = await this.generateId("MEM")
+      console.log("----ids----", ids)
+      const roleId = [ids.roleId];
+      updateFields.joinId = ids.joinId;
+
       const user = await User.findByIdAndUpdate(
         userId, 
         { 
           $set: updateFields,
-          $push: { roleId: roleId }
+          $push: { roleId: roleId },
         }, 
         { new: true }
       ).select('-password');
@@ -862,7 +874,8 @@ class UserService {
       // --- END OF NEW LOGIC ---
 
       // 5. Generate the new roleId for the user who is upgrading
-      const newRoleId = generateRoleId(nextRole);
+      // const newRoleId = generateRoleId(nextRole);
+      const { roleId: newRoleId } = await this.generateId(nextRole);
 
       // 6. Perform the atomic update in the database with all new fields
       const updatedUser = await User.findByIdAndUpdate(
@@ -894,9 +907,41 @@ class UserService {
     }
   }
 
+  async generateId(role) {
+    try {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2);
+      const datePart = `${day}${month}${year}`;
+      
+      // The unique identifier for today's counter document.
+      const counterId = `user_sequence_${datePart}`;
+
+      // Atomically find the counter for today and increment its value.
+      // - { $inc: ... }: This is an atomic increment operation.
+      // - { new: true }: This ensures the updated document is returned.
+      // - { upsert: true }: This creates the document if it doesn't exist for the day.
+      const counter = await Counter.findByIdAndUpdate(
+        counterId,
+        { $inc: { sequence_value: 1 } },
+        { new: true, upsert: true }
+      );
+
+      const sequencePart = String(counter.sequence_value).padStart(3, '0');
+
+      const joinId = `RMHSE${datePart}${sequencePart}`;
+      const roleId = `${role}${datePart}${sequencePart}`;
+  
+      consoleManager.log(`Generated Atomic ID: ${joinId}, Role ID: ${roleId}`);
+      return { joinId, roleId };
+  
+    } catch (error) {
+      consoleManager.error(`Error during atomic ID generation: ${error.message}`);
+      throw new Error('Could not generate a unique Member ID.');
+    }
+  }
+
 }
-
-
-
 
 export default new UserService();

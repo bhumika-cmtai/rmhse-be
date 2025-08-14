@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false 
   },
+  fatherName: {
+    type: String,
+    required: false
+  },
   emergencyNumber: {
     type: String,
     required: false 
@@ -54,6 +58,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
     // default: "user"
+  },
+  joinId: {
+    type: String, 
+    required: false
   },
   profileImage: {
     type:String,

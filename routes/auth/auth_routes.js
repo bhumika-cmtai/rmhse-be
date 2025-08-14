@@ -9,39 +9,39 @@ const router = express.Router();
 // User login route
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // --- MODIFICATION START ---
+    const { joinId, password } = req.body;
 
     // Validate request body
-    if (!email || !password) {
+    if (!joinId || !password) {
       return ResponseManager.handleBadRequestError(
         res,
-        "Email and password are required"
+        "Join ID and password are required"
       );
     }
+    // --- MODIFICATION END ---
+    
+    // Login the user using the updated service method
+    // --- MODIFICATION START ---
+    const { user, token } = await AuthService.loginUser(joinId, password);
+    // --- MODIFICATION END ---
 
-    // console.log(email)
-    // console.log(password)
-    // Login the user and generate JWT token
-    const {user,token} = await AuthService.loginUser(email, password);
-
-    // Encrypt the JWT token
-    // const encryptedToken = encrypt(token);
-
-    // Send success response with the encrypted token
+    // Send success response
     ResponseManager.sendSuccess(
       res,
-      {user, token },
+      { user, token },
       200,
       "Login successful"
     );
   } catch (err) {
     if (err.message === "Invalid credentials") {
-      // console.log(err)
       return ResponseManager.sendError(
         res,
         401, 
         "AUTHENTICATION_FAILED",
-        "Invalid email or password. Please try again."
+        // --- MODIFICATION START ---
+        "Invalid Join ID or password. Please try again."
+        // --- MODIFICATION END ---
       );
     }
 
@@ -53,7 +53,6 @@ router.post("/login", async (req, res) => {
       "INTERNAL_ERROR",
       "An internal server error occurred during login."
     );
-
   }
 });
 

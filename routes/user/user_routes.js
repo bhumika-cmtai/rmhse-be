@@ -376,15 +376,16 @@ router.put('/update-document',
 // =================================================================
 router.put('/activate-user', async (req, res) => {
   try {
-    const { userId, roleId, referredBy } = req.body;
-    
-    if (!userId || !roleId || !referredBy) {
-      return ResponseManager.handleBadRequestError(res, 'userId, roleId, and referredBy are required');
+    const { userId, refferedBy } = req.body;
+    console.log("----active-user----", refferedBy)
+    if (!userId || !refferedBy) {
+      return ResponseManager.handleBadRequestError(res, 'userId, roleId, and refferedBy are required');
     }
-
-    const activatedUser = await UserService.activateUser(userId, roleId, referredBy);
+    
+    const activatedUser = await UserService.activateUser(userId, refferedBy);
 
     if (activatedUser) {
+      console.log("---/activate-User---", activatedUser)
       return ResponseManager.sendSuccess(res, activatedUser, 200, 'User activated successfully');
     } else {
       return ResponseManager.sendError(res, 404, 'NOT_FOUND', 'User not found for activation');
@@ -418,6 +419,34 @@ router.put('/upgrade-role', authMiddleware, async (req, res) => {
     return ResponseManager.sendError(res, statusCode, 'UPGRADE_FAILED', err.message);
   }
 });
+
+router.get('/generate-ids', async (req, res) => {
+  try {
+      const { role } = req.query;
+
+      // 1. Validate that the 'role' parameter was provided
+      if (!role || typeof role !== 'string') {
+          return ResponseManager.handleBadRequestError(res, 'A "role" query parameter is required.');
+      }
+
+      // 2. Call the service method, which now correctly returns an object
+      const ids = await UserService.generateId(role);
+
+      // 3. Send the object containing both the joinId and roleId back to the client
+      return ResponseManager.sendSuccess(
+          res, 
+          ids, // The payload is the object { joinId, roleId }
+          200, 
+          'IDs generated successfully.'
+      );
+
+  } catch (err) {
+      consoleManager.error(`Error in /generate-ids route: ${err.message}`);
+      return ResponseManager.sendError(res, 500, 'INTERNAL_ERROR', 'Error generating IDs');
+  }
+});
+
+
 
 router.get(
   '/referral-count/:userId',
