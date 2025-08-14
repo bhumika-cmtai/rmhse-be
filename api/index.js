@@ -88,7 +88,7 @@ app.post('/v1/payment/order', async (req, res) => {
   }
 
   const payment_capture = 1;
-  const amount = 1;
+  const amount = 350;
   const currency = 'INR';
 
   const options = {
