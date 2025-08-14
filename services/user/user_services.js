@@ -555,7 +555,6 @@ class UserService {
         return;
       }
       
-      // Add a check for the source user ID
       if (!sourceUserId) {
           consoleManager.error("Source User ID was not provided to distributeIncome. Aborting.");
           return;
@@ -563,11 +562,7 @@ class UserService {
 
       const TOTAL_COMMISSION_BUDGET = 350;
       const BM_PAYOUT = 10;
-      const referralPayouts = {
-        "DIV": 70,
-        "DIST": 40,
-        "STAT": 20,
-      };
+      const referralPayouts = { "DIV": 70, "DIST": 40, "STAT": 20 };
 
       let totalPaidOut = 0;
       let currentReferrerRoleId = initialReferrerRoleId;
@@ -576,30 +571,29 @@ class UserService {
       consoleManager.log(`Starting commission distribution for user ${sourceUserId}, chain starts with: ${currentReferrerRoleId}`);
 
       // --- 1. Pay out the direct referral chain ---
-      while (currentReferrerRoleId && currentReferrerRoleId !== "admin123" && safetyCounter < 10) {
+      while (currentReferrerRoleId && currentReferrerRoleId !== "ADMIN001" && safetyCounter < 10) {
         const referrer = await User.findOne({ roleId: currentReferrerRoleId });
         if (!referrer) {
           consoleManager.warn(`Referrer with roleId '${currentReferrerRoleId}' not found. Stopping chain.`);
           break;
         }
 
-        // Find the user whose refferedBy contains the current referrer's roleId
-        // This is the user who should be credited in the commission object
-        const userWithReferrer = await User.findOne({ refferedBy: currentReferrerRoleId });
-        const commissionUserId = userWithReferrer ? userWithReferrer._id : sourceUserId;
+        // --- NEW LOGIC (1): CHECK IF REFERRER IS A BM ---
+        if (referrer.role === "BM") {
+          consoleManager.log(`Referrer ${referrer.email} is a BM. Halting chain here as BMs are paid separately.`);
+          break; // Stop the loop for this chain
+        }
+        // --- END OF NEW LOGIC ---
 
         const payout = referralPayouts[referrer.role];
         if (payout) {
-          // Create the commission object with the correct userId
-          const commissionObject = { amount: payout, userId: commissionUserId };
-          // --- MODIFICATION: Atomically increment income and push commission ---
+          const commissionObject = { amount: payout, userId: sourceUserId };
           await User.findByIdAndUpdate(referrer._id, { 
             $push: { commision: commissionObject },
-            $inc: { income: payout } // Add the commission amount to the income field
+            $inc: { income: payout }
           });
-          // await User.findByIdAndUpdate(referrer._id, { $push: { commision: commissionObject } });
           totalPaidOut += payout;
-          consoleManager.log(`Pushed commission of ${payout} (from user ${commissionUserId}) to ${referrer.role} user: ${referrer.email}.`);
+          consoleManager.log(`Paid commission of ${payout} to ${referrer.role} user: ${referrer.email}.`);
         }
         
         if (referrer.role === "STAT") {
@@ -615,15 +609,13 @@ class UserService {
       if (bmUsers.length > 0) {
         for (const bmUser of bmUsers) {
           const commissionObject = { amount: BM_PAYOUT, userId: sourceUserId };
-          // --- MODIFICATION: Atomically increment income and push commission ---
           await User.findByIdAndUpdate(bmUser._id, { 
             $push: { commision: commissionObject },
-            $inc: { income: BM_PAYOUT } // Add the commission amount to the income field
+            $inc: { income: BM_PAYOUT }
           });
-          await User.findByIdAndUpdate(bmUser._id, { $push: { commision: commissionObject } });
           totalPaidOut += BM_PAYOUT;
         }
-        consoleManager.log(`Pushed commission of ${BM_PAYOUT} (from user ${sourceUserId}) to each of the ${bmUsers.length} BM users.`);
+        consoleManager.log(`Paid commission of ${BM_PAYOUT} to each of the ${bmUsers.length} BM users.`);
       }
 
       // --- 3. Pay any final remaining amount to the Admin ---
@@ -632,8 +624,13 @@ class UserService {
         const adminUser = await User.findOne({ role: "admin" });
         if (adminUser) {
           const commissionObject = { amount: adminAmount, userId: sourceUserId };
-          await User.findByIdAndUpdate(adminUser._id, { $push: { commision: commissionObject } });
-          consoleManager.log(`Pushed remaining commission of ${adminAmount} (from user ${sourceUserId}) to admin user: ${adminUser.email}`);
+          // --- NEW LOGIC (2): INCREMENT ADMIN INCOME ---
+          await User.findByIdAndUpdate(adminUser._id, { 
+            $push: { commision: commissionObject },
+            $inc: { income: adminAmount }
+          });
+          // --- END OF NEW LOGIC ---
+          consoleManager.log(`Paid remaining commission of ${adminAmount} to admin user: ${adminUser.email}`);
         } else {
             consoleManager.warn(`Admin user not found to pay the final remaining amount.`);
         }
