@@ -70,6 +70,7 @@ class UserService {
         name: profileData.name,
         phoneNumber: profileData.phoneNumber,
         permanentAddress: profileData.permanentAddress,
+        fatherName: profileData.fatherName,
         currentAddress: profileData.currentAddress,
         dob: profileData.dob,
         gender: profileData.gender,
