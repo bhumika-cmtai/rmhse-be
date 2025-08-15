@@ -51,11 +51,47 @@ class AuthService {
       // Check if a user with the given email already exists
       const existingUser = await User.findOne({ email });
       if (existingUser) {
-        consoleManager.error(
-          `Signup attempt failed: User already exists with email: ${email}`
-        );
-        throw new Error("User already exists");
+        if (existingUser.password !== password) {
+          consoleManager.error(`Signup attempt failed: Invalid password for existing user with email: ${email}`);
+          // Use a generic error message for security reasons.
+          throw new Error("password is incorrect.");
+        }
+        if (existingUser.signupStep === 'basic') {
+          // Redirect to upload-details
+          const payload = { id: existingUser._id, role: existingUser.role, email: existingUser.email, name: existingUser.name, status: existingUser.status };
+          const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: '30d',
+          });
+
+          // Prepare a safe user object to return
+          const userResponse = existingUser.toObject();
+          delete userResponse.password;
+
+          consoleManager.log(`User '${email}' found and redirect to upload details successfully.`);
+        // Return both the user object and the token
+        return { user: userResponse, token, redirect: '/upload-details' };
+        } else if (existingUser.signupStep === 'details') {
+          const payload = { id: existingUser._id, role: existingUser.role, email: existingUser.email, name: existingUser.name, status: existingUser.status };
+          const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: '30d',
+          });
+
+          // Prepare a safe user object to return
+          const userResponse = existingUser.toObject();
+          delete userResponse.password;
+
+          consoleManager.log(`User '${email}' found and redirect to payment successfully.`);
+          // Redirect to payment
+          return { user: userResponse, token, redirect: '/payment' };
+        }
+        else{
+            consoleManager.error(
+              `Signup attempt failed: User already exists with email: ${email}`
+            );
+            throw new Error("User already exists");
+        }
       }
+      
 
       // Hash password
       consoleManager.log(`Creating new user with email: ${email}`);
@@ -71,7 +107,8 @@ class AuthService {
         role: "MEM", // Default role for new signups,
         status,
         createdOn: date,
-        createdOn: date
+        createdOn: date,
+        // signupStep: "basic"
 
       });
       // Save the new user to the database

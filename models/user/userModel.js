@@ -127,7 +127,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false
   },
-
+  signupStep: {
+    type: String,
+    required: false,
+    default: "basic"
+  },
   account_number: {
     type: String,
     required: false

@@ -69,7 +69,7 @@ router.post("/signup", async (req, res) => {
     }
 
     // Create the new user
-    const {user, token} = await AuthService.signupUser({
+    const {user, token, redirect} = await AuthService.signupUser({
       name,
       email,
       dob,
@@ -82,7 +82,7 @@ router.post("/signup", async (req, res) => {
     // Send success response
     ResponseManager.sendSuccess(
       res,
-      { user, token },
+      { user, token, redirect },
       201,
       "User created successfully"
     );
@@ -90,9 +90,17 @@ router.post("/signup", async (req, res) => {
     if (err.message === "User already exists") {
       return ResponseManager.sendError(
         res,
-        409,
+        409, // HTTP 409 Conflict
         "CONFLICT",
         "A user with this email already exists."
+      );
+    }
+    if (err.message === "password is incorrect.") {
+      return ResponseManager.sendError(
+        res,
+        401, // HTTP 401 Unauthorized
+        "AUTHENTICATION_FAILED",
+        "The password you entered is incorrect. Please try again."
       );
     }
 

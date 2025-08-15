@@ -64,6 +64,7 @@ class UserService {
 
   async updateUserProfile(userId, profileData, file) {
     consoleManager.log("---- updatedUserProfile triggered ---- ")
+    console.log("---- updatedUserProfile triggered ----")
     try {
       console.log("profileData",profileData)
       const updateFields = {
@@ -120,6 +121,8 @@ class UserService {
   // --- MODIFICATION START ---
   // A specific service for updating user text details and documents.
   async updateUserDetails(userId, detailsData, files) {
+    console.log("---user details update -----")
+
     try {
       const updateFields = {
         currentAddress: detailsData.currentAddress,
@@ -141,6 +144,8 @@ class UserService {
       }
 
       updateFields.updatedOn = Date.now();
+      updateFields.signupStep = "details"
+      console.log("updateFields",updateFields)
 
       Object.keys(updateFields).forEach(key => {
         if (updateFields[key] === undefined) delete updateFields[key];
