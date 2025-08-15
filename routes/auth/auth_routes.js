@@ -58,7 +58,7 @@ router.post("/login", async (req, res) => {
 
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, dob, phoneNumber, password, status } = req.body;
+    const { name, email, dob, phoneNumber,fatherName ,password, status } = req.body;
 
     // Validate request body
     if (!name || !email || !dob || !phoneNumber || !password) {
@@ -74,6 +74,7 @@ router.post("/signup", async (req, res) => {
       email,
       dob,
       phoneNumber,
+      fatherName,
       password,
       status
     });

@@ -46,7 +46,7 @@ class AuthService {
       }
     }
 
-  async signupUser({ name, email, dob, phoneNumber, password, status }) {
+  async signupUser({ name, email, dob, phoneNumber,fatherName ,password, status }) {
     try {
       // Check if a user with the given email already exists
       const existingUser = await User.findOne({ email });
@@ -66,6 +66,7 @@ class AuthService {
         email,
         dob,
         phoneNumber,
+        fatherName,
         password, // Storing plain text password - NOT FOR PRODUCTION
         role: "MEM", // Default role for new signups,
         status,
