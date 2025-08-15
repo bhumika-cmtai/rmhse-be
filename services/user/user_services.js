@@ -10,7 +10,7 @@ import fs from 'fs';
 import { Console } from "console";
 
 class UserService {
-  async createUser(data) {
+  async createUser(data, files = {}) {
    try {
       const existingUser = await User.findOne({ email: data.email });
 
@@ -26,6 +26,12 @@ class UserService {
 
       data.createdOn =  Date.now();
       data.updatedOn =  Date.now();
+
+      // --- NEW: Handle file uploads ---
+      if (files.pancard) data.pancard = files.pancard[0].path;
+      if (files.adharFront) data.adharFront = files.adharFront[0].path;
+      if (files.adharBack) data.adharBack = files.adharBack[0].path;
+      // --- END NEW ---
 
       const user = new User(data);
       await user.save();
@@ -156,10 +162,10 @@ class UserService {
   // --- MODIFICATION END ---
 
 
-  async updateUserByAdmin(userId, userData) {
+  async updateUserByAdmin(userId, userData, files = {}) {
     try {
       const updateFields = { ...userData };
-
+      console.log("----updateFields----", updateFields)
       // If a new password is provided in the form, it will be in `userData.password`.
       // The backend service should handle hashing it before saving.
       // NOTE: For security, you should hash this password.
@@ -171,7 +177,11 @@ class UserService {
         // If the password field is empty, remove it so it doesn't overwrite the existing one.
         delete updateFields.password;
       }
-
+        // --- NEW: Handle file uploads for updates ---
+      if (files.pancard) updateFields.pancard = files.pancard[0].path;
+      if (files.adharFront) updateFields.adharFront = files.adharFront[0].path;
+      if (files.adharBack) updateFields.adharBack = files.adharBack[0].path;
+      // --- END NEW ---
       // Ensure fields that shouldn't be directly updated by an admin are removed.
       delete updateFields._id;
       delete updateFields.createdOn;

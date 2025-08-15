@@ -14,7 +14,7 @@ import { documentUpload, profileImageUpload } from '../../middleware/multer.js'
 const router = express.Router();
 
 //create a user 
-router.post('/addUser', async (req, res) => {
+router.post('/addUser', documentUpload,async (req, res) => {
   try {
     // Extract fields from the request body
     if (!req.body.name) {
@@ -38,7 +38,7 @@ router.post('/addUser', async (req, res) => {
     }
 
     // Create the user if all required fields are present
-    const user = await UserService.createUser(req.body);
+    const user = await UserService.createUser(req.body, req.files);
     return ResponseManager.sendSuccess(res, user, 201, 'User created successfully');
   } catch (err) {
 
@@ -292,10 +292,11 @@ router.put(
 
 router.put(
   '/updateUser/:id',   // 2. Authorize: Check if the user is an admin
+  documentUpload,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const updatedUser = await UserService.updateUserByAdmin(id, req.body);
+      const updatedUser = await UserService.updateUserByAdmin(id, req.body, req.files);
       
       if (updatedUser) {
         return ResponseManager.sendSuccess(res, updatedUser, 200, 'User profile updated successfully by admin');
