@@ -920,37 +920,35 @@ class UserService {
     }
   }
 
-  async generateId(role) {
+   async generateId(role) {
     try {
+      // Step 1: Get the current date part (DDMMYY). This remains the same.
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = String(now.getFullYear()).slice(-2);
       const datePart = `${day}${month}${year}`;
       
-      // The unique identifier for today's counter document.
-      const counterId = `user_sequence_${datePart}`;
+      // Step 2: Count all existing users in the database.
+      // NOTE: This is the non-atomic part that can cause a race condition.
+      const totalUsers = await User.countDocuments();
 
-      // Atomically find the counter for today and increment its value.
-      // - { $inc: ... }: This is an atomic increment operation.
-      // - { new: true }: This ensures the updated document is returned.
-      // - { upsert: true }: This creates the document if it doesn't exist for the day.
-      const counter = await Counter.findByIdAndUpdate(
-        counterId,
-        { $inc: { sequence_value: 1 } },
-        { new: true, upsert: true }
-      );
+      // Step 3: The new user's sequence number will be the total count + 1.
+      // For example, if there are 32 users, this will be 33.
+      const nextSequenceNumber = totalUsers + 1;
 
-      const sequencePart = String(counter.sequence_value).padStart(3, '0');
+      // Step 4: Pad the sequence number to ensure consistent length (e.g., 4 digits).
+      const sequencePart = String(nextSequenceNumber).padStart(4, '0');
 
+      // Step 5: Construct the final IDs.
       const joinId = `RMHSE${datePart}${sequencePart}`;
       const roleId = `${role}${datePart}${sequencePart}`;
   
-      consoleManager.log(`Generated Atomic ID: ${joinId}, Role ID: ${roleId}`);
+      consoleManager.log(`Generated ID based on user count: ${joinId}, Role ID: ${roleId}`);
       return { joinId, roleId };
   
     } catch (error) {
-      consoleManager.error(`Error during atomic ID generation: ${error.message}`);
+      consoleManager.error(`Error during ID generation by count: ${error.message}`);
       throw new Error('Could not generate a unique Member ID.');
     }
   }

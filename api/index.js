@@ -20,7 +20,7 @@ connectDB().catch((error) => {
 // CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = ['http://localhost:3000', 'https://www.rmhse.org/', "https://www.rmhse.org","https://rmhse.vercel.app/"];
+    const allowedOrigins = ['http://localhost:3001', 'https://www.rmhse.org/', "https://www.rmhse.org","https://rmhse.vercel.app/"];
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);

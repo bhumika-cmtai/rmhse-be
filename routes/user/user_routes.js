@@ -524,4 +524,18 @@ router.get('/getTotalIncome', async (req, res) => {
   }
 });
 
+// router.post('/generate-user', async(req,res)=>{
+//   const data = req.body
+//   try{
+//     const joinId = UserService.generateId("MEM")
+//     data.joinId = joinId
+//     const user = new User(data);
+//     console.log("---user---", user)
+//     res.json(user)
+//   }
+//   catch(error){
+//     console.log(error)
+//   }
+// })
+
 export default router;
