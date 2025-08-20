@@ -527,8 +527,9 @@ router.get('/getTotalIncome', async (req, res) => {
 // router.post('/generate-user', async(req,res)=>{
 //   const data = req.body
 //   try{
-//     const joinId = UserService.generateId("MEM")
-//     data.joinId = joinId
+//     const ids = UserService.generateId(data.role)
+//     data.roleId = [ids.roleId]
+//     data.joinId = ids.joinId
 //     const user = new User(data);
 //     console.log("---user---", user)
 //     res.json(user)

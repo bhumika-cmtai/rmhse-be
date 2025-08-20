@@ -920,38 +920,51 @@ class UserService {
     }
   }
 
-   async generateId(role) {
+  async generateId(role) {
     try {
-      // Step 1: Get the current date part (DDMMYY). This remains the same.
-      const now = new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = String(now.getFullYear()).slice(-2);
-      const datePart = `${day}${month}${year}`;
-      
-      // Step 2: Count all existing users in the database.
-      // NOTE: This is the non-atomic part that can cause a race condition.
-      const totalUsers = await User.countDocuments();
+        // --- Part 1: Common Date Component (Unchanged) ---
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = String(now.getFullYear()).slice(-2);
+        const datePart = `${day}${month}${year}`;
 
-      // Step 3: The new user's sequence number will be the total count + 1.
-      // For example, if there are 32 users, this will be 33.
-      const nextSequenceNumber = totalUsers + 1;
+        // --- Part 2: Generate joinId based on TOTAL user count (Unchanged) ---
+        const totalUserCount = await User.countDocuments();
+        const nextTotalSequence = totalUserCount + 1;
+        const totalSequencePart = String(nextTotalSequence).padStart(4, '0');
+        const joinId = `RMHSE${datePart}${totalSequencePart}`;
 
-      // Step 4: Pad the sequence number to ensure consistent length (e.g., 4 digits).
-      const sequencePart = String(nextSequenceNumber).padStart(4, '0');
+        let roleId;
 
-      // Step 5: Construct the final IDs.
-      const joinId = `RMHSE${datePart}${sequencePart}`;
-      const roleId = `${role}${datePart}${sequencePart}`;
-  
-      consoleManager.log(`Generated ID based on user count: ${joinId}, Role ID: ${roleId}`);
-      return { joinId, roleId };
-  
+        // --- Part 3: Generate roleId with new counting logic ---
+        // Create a regular expression to find elements that start with the role prefix.
+        // For example, if role is "DIV", regex will be /^DIV/
+
+        if(role==="MEM"){
+          console.log(role)
+          roleId = `${role}${datePart}${totalSequencePart}`;
+        }
+        else{
+          const rolePrefixRegex = new RegExp(`^${role}`);
+          // This query counts how many documents have at least one element in their
+          // `roleId` array that starts with the specified role prefix.
+          const roleSpecificCount = await User.countDocuments({ roleId: { $regex: rolePrefixRegex } });
+          
+          const nextRoleSequence = roleSpecificCount + 1;
+          const roleSequencePart = String(nextRoleSequence).padStart(4, '0');
+          roleId = `${role}${datePart}${roleSequencePart}`;
+        }
+
+        consoleManager.log(`Generated IDs: joinId=${joinId}, roleId=${roleId} (total '${role}' entries)`);
+        return { joinId, roleId };
+
     } catch (error) {
-      consoleManager.error(`Error during ID generation by count: ${error.message}`);
-      throw new Error('Could not generate a unique Member ID.');
+        consoleManager.error(`Error during ID generation by count: ${error.message}`);
+        throw new Error('Could not generate unique IDs.');
     }
-  }
+}
+
 
 }
 
