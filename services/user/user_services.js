@@ -934,7 +934,7 @@ class UserService {
       // Count only the documents where the 'joinId' field exists.
       const joinIdCount = await User.countDocuments({ joinId: { $exists: true } });
       
-      const nextTotalSequence = joinIdCount + 1;
+      const nextTotalSequence = joinIdCount
       const totalSequencePart = String(nextTotalSequence).padStart(4, '0');
       const joinId = `RMHSE${datePart}${totalSequencePart}`;
   
