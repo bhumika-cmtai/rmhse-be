@@ -922,49 +922,46 @@ class UserService {
 
   async generateId(role) {
     try {
-        // --- Part 1: Common Date Component (Unchanged) ---
-        const now = new Date();
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const year = String(now.getFullYear()).slice(-2);
-        const datePart = `${day}${month}${year}`;
-
-        // --- Part 2: Generate joinId based on TOTAL user count (Unchanged) ---
-        const totalUserCount = await User.countDocuments();
-        const nextTotalSequence = totalUserCount + 1;
-        const totalSequencePart = String(nextTotalSequence).padStart(4, '0');
-        const joinId = `RMHSE${datePart}${totalSequencePart}`;
-
-        let roleId;
-
-        // --- Part 3: Generate roleId with new counting logic ---
-        // Create a regular expression to find elements that start with the role prefix.
-        // For example, if role is "DIV", regex will be /^DIV/
-
-        if(role==="MEM"){
-          console.log(role)
-          roleId = `${role}${datePart}${totalSequencePart}`;
-        }
-        else{
-          const rolePrefixRegex = new RegExp(`^${role}`);
-          // This query counts how many documents have at least one element in their
-          // `roleId` array that starts with the specified role prefix.
-          const roleSpecificCount = await User.countDocuments({ roleId: { $regex: rolePrefixRegex } });
-          
-          const nextRoleSequence = roleSpecificCount + 1;
-          const roleSequencePart = String(nextRoleSequence).padStart(4, '0');
-          roleId = `${role}${datePart}${roleSequencePart}`;
-        }
-
-        consoleManager.log(`Generated IDs: joinId=${joinId}, roleId=${roleId} (total '${role}' entries)`);
-        return { joinId, roleId };
-
+      // --- Part 1: Common Date Component (Unchanged) ---
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2);
+      const datePart = `${day}${month}${year}`;
+  
+      // --- Part 2: Generate joinId based on users that HAVE a joinId ---
+      // --- FIX ---
+      // Count only the documents where the 'joinId' field exists.
+      const joinIdCount = await User.countDocuments({ joinId: { $exists: true } });
+      
+      const nextTotalSequence = joinIdCount + 1;
+      const totalSequencePart = String(nextTotalSequence).padStart(4, '0');
+      const joinId = `RMHSE${datePart}${totalSequencePart}`;
+  
+      let roleId;
+  
+      // --- Part 3: Generate roleId with new counting logic (Unchanged) ---
+      if (role === "MEM") {
+        console.log(role);
+        // Members can share the same sequence as the joinId for simplicity if desired
+        roleId = `${role}${datePart}${totalSequencePart}`;
+      } else {
+        const rolePrefixRegex = new RegExp(`^${role}`);
+        const roleSpecificCount = await User.countDocuments({ roleId: { $regex: rolePrefixRegex } });
+        
+        const nextRoleSequence = roleSpecificCount + 1;
+        const roleSequencePart = String(nextRoleSequence).padStart(3, '0');
+        roleId = `${role}${datePart}${roleSequencePart}`;
+      }
+  
+      consoleManager.log(`Generated IDs: joinId=${joinId}, roleId=${roleId}`);
+      return { joinId, roleId };
+  
     } catch (error) {
-        consoleManager.error(`Error during ID generation by count: ${error.message}`);
-        throw new Error('Could not generate unique IDs.');
+      consoleManager.error(`Error during ID generation by count: ${error.message}`);
+      throw new Error('Could not generate unique IDs.');
     }
-}
-
+  }
 
 }
 
