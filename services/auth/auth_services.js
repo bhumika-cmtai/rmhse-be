@@ -49,6 +49,7 @@ class AuthService {
   async signupUser({ name, email, dob, phoneNumber,fatherName ,password, status }) {
     try {
       // Check if a user with the given email already exists
+      console.log("---signup found---")
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         if (existingUser.password !== password) {
@@ -66,7 +67,7 @@ class AuthService {
           // Prepare a safe user object to return
           const userResponse = existingUser.toObject();
           delete userResponse.password;
-
+          console.log("---user found---")
           consoleManager.log(`User '${email}' found and redirect to upload details successfully.`);
         // Return both the user object and the token
         return { user: userResponse, token, redirect: '/upload-details' };

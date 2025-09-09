@@ -11,38 +11,150 @@ import { Console } from "console";
 
 class UserService {
   async createUser(data, files = {}) {
-   try {
-      const existingUser = await User.findOne({ email: data.email });
+    try {
+       const existingUser = await User.findOne({ email: data.email });
+ 
+       if (existingUser) {
+         const error = new Error("A user with this email already exists.");
+         error.statusCode = 409; 
+         throw error;
+       }
+       if (data.refferedBy) {
+         
+         if (!data.refferedBy.startsWith('DIV')) {
+           const error = new Error("Invalid referrer. The referredBy ID must belong to a DIV user.");
+           error.statusCode = 400;
+           throw error;
+         }
 
+         const referrerExists = await User.findOne({ roleId: data.refferedBy });
+         if (!referrerExists) {
+           const error = new Error("The provided DIV referrer ID does not exist.");
+           error.statusCode = 400; 
+           throw error;
+         }
+       }
+       // --- NEW VALIDATION LOGIC END ---
+ 
+      //  const ids = await this.generateId(data.role)
+      //  data.joinId = ids.joinId;
+      //  data.roleId = [ids.roleId];
+
+       data.createdOn =  Date.now();
+       data.updatedOn =  Date.now();
+ 
+       if (files.pancard) data.pancard = files.pancard[0].path;
+       if (files.adharFront) data.adharFront = files.adharFront[0].path;
+       if (files.adharBack) data.adharBack = files.adharBack[0].path;
+       
+     
+       data.status = 'block';
+       data.signupStep = 'basic';
+ 
+       const user = new User(data);
+       await user.save();
+       
+       consoleManager.log("User created successfully with status 'block'");
+       return user;
+       
+     } catch (err) {
+       consoleManager.error(`Error creating user: ${err.message}`);
+       throw err;
+     }
+   }
+
+  async createUserByAdmin(data, files = {}) {
+    try {
+      const existingUser = await User.findOne({ email: data.email });
       if (existingUser) {
         const error = new Error("A user with this email already exists.");
-        error.statusCode = 409; 
+        error.statusCode = 409;
         throw error;
       }
 
-      const ids = await this.generateId(data.role)
-      data.joinId = ids.joinId;
-      data.roleId = [ids.roleId];
+      // 2. Validate the Referrer based on the new user's Role
+      const { role, refferedBy } = data;
+      if (!refferedBy) {
+        const error = new Error("The 'Referred By' ID is mandatory when creating a user as Admin.");
+        error.statusCode = 400;
+        throw error;
+      }
 
-      data.createdOn =  Date.now();
-      data.updatedOn =  Date.now();
+      const expectedReferrer = {
+        'MEM': { prefix: 'DIV', message: 'a DIV user' },
+        'DIV': { prefix: 'DIST', message: 'a DIST user' },
+        'DIST': { prefix: 'STAT', message: 'a STAT user' },
+        'STAT': { id: 'BM005', message: 'the user BM005' }
+      };
 
-      // --- NEW: Handle file uploads ---
+      const rule = expectedReferrer[role];
+
+      if (rule) {
+        if (rule.prefix && !refferedBy.startsWith(rule.prefix)) {
+          const error = new Error(`Invalid referrer. A ${role} must be referred by ${rule.message}.`);
+          error.statusCode = 400;
+          throw error;
+        }
+        if (rule.id && refferedBy !== rule.id) {
+          const error = new Error(`Invalid referrer. A ${role} must be referred by ${rule.message}.`);
+          error.statusCode = 400;
+          throw error;
+        }
+      }
+      // If the role is BM, no validation is needed as they can be referred by Admin or others.
+
+      // 3. Verify that the provided referrer ID actually exists in the database
+      // We don't need to check for system IDs like 'ADMIN001'
+      if (refferedBy !== 'ADMIN001') {
+        const referrerExists = await User.findOne({ roleId: refferedBy });
+        if (!referrerExists) {
+          const error = new Error(`The provided referrer ID '${refferedBy}' does not exist.`);
+          error.statusCode = 400;
+          throw error;
+        }
+      }
+
+      // 4. Generate Join ID and Role ID for the new user
+      if(data.role!=='MEM'){
+        const ids = await this.generateId(role);
+        data.joinId = ids.joinId;
+        data.roleId = [ids.roleId]; // Initialize the roleId history
+      }
+
+      // 5. Set default fields for an admin-created user
+      if(data.role=='MEM'){
+        data.status = 'block'
+      }else{
+        data.status = 'active'; // Status is active by default
+      }
+      // data.paymentStatus = 'details';
+      data.signupStep = 'details';
+      data.createdOn = Date.now();
+      data.updatedOn = Date.now();
+
+      // 6. Handle file uploads
       if (files.pancard) data.pancard = files.pancard[0].path;
       if (files.adharFront) data.adharFront = files.adharFront[0].path;
       if (files.adharBack) data.adharBack = files.adharBack[0].path;
-      // --- END NEW ---
-
+      
+      // 7. Create and save the new user
       const user = new User(data);
       await user.save();
-      consoleManager.log("User created successfully");
+      
+      consoleManager.log(`User ${user.email} created successfully by Admin with status 'active'.`);
+
+      // 8. Trigger commission distribution immediately
+      // await this.distributeIncome(user.refferedBy, user._id);
+
       return user;
+      
     } catch (err) {
-      consoleManager.error(`Error creating user: ${err.message}`);
+      // Log the specific error and re-throw it to be handled by the controller
+      consoleManager.error(`Error creating user by admin: ${err.message}`);
       throw err;
     }
   }
-
+ 
   async getUserById(userId) {
     try {
       const user = await User.findById(userId);
@@ -664,45 +776,65 @@ class UserService {
   // =================================================================
   async activateUser(userId, refferedBy) {
     try {
-      console.log("---refferredBy---", refferedBy)
-      const updateFields = {
-        refferedBy: refferedBy,
-        status: 'active',
-        role: 'MEM',
-        paymentStatus: 'completed',
-        updatedOn: Date.now(),
-      };
-      const ids = await this.generateId("MEM")
-      console.log("----ids----", ids)
-      const roleId = [ids.roleId];
-      updateFields.joinId = ids.joinId;
-
-      const user = await User.findByIdAndUpdate(
-        userId, 
-        { 
-          $set: updateFields,
-          $push: { roleId: roleId },
-        }, 
-        { new: true }
-      ).select('-password');
-
-      if (!user) {
+      // First, check if the user exists
+      const existingUser = await User.findById(userId);
+  
+      if (!existingUser) {
         consoleManager.error("User not found for activation");
         return null;
       }
-      
+  
+      let roleToGenerate = "MEM";
+      // Check if the user already has a referredBy and a role
+      if (existingUser.refferedBy && existingUser.role) {
+        console.log("---User already has a role, using existing role for ID generation---");
+        roleToGenerate = existingUser.role;
+      }
+  
+      console.log("---refferredBy---", refferedBy);
+  
+      const ids = await this.generateId(roleToGenerate);
+      console.log("----ids----", ids);
+  
+      const updateFields = {
+        refferedBy: existingUser.refferedBy,
+        status: 'active',
+        role: existingUser.role,
+        paymentStatus: 'completed',
+        updatedOn: Date.now(),
+        joinId: ids.joinId,
+      };
+  
+      const roleId = [ids.roleId];
+  
+      const user = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: updateFields,
+          $push: { roleId: roleId },
+        },
+        { new: true }
+      ).select('-password');
+  
+      if (!user) {
+        // This is a fallback, though the initial check should prevent this
+        consoleManager.error("User not found for activation during update");
+        return null;
+      }
+  
       consoleManager.log("User activated successfully. Now distributing income...");
-      
+  
       // --- TRIGGER COMMISSION DISTRIBUTION ---
       // Pass both the referrer's role ID and the new user's own ID
       await this.distributeIncome(user.refferedBy, user._id);
-
+  
       return user;
     } catch (err) {
       consoleManager.error(`Error activating user: ${err.message}`);
       throw err;
     }
   }
+  
 
   async countReferredUsers(userId) {
     try {

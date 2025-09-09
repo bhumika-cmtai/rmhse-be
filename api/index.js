@@ -156,7 +156,7 @@ app.get('/v1/razorpay-key', (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   //consoleManger changed to console.log for now
   try{
 
