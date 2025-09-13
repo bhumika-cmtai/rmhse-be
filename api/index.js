@@ -137,6 +137,7 @@ app.post('/v1/payment/verify', async (req, res) => {
     user.razorpay_order_id = razorpay_order_id;
     user.razorpay_payment_id = razorpay_payment_id;
     user.razorpay_signature = razorpay_signature;
+    user.signupStep = "completed"
     user.paymentStatus = 'completed';
     console.log("this is credentail",razorpay_order_id, razorpay_payment_id, razorpay_signature, user.paymentStatus);
 
