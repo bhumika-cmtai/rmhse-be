@@ -783,7 +783,9 @@ class UserService {
         consoleManager.error("User not found for activation");
         return null;
       }
-  
+
+      // if existing user exist then they already have the refferedBy
+    
       let roleToGenerate = "MEM";
       // Check if the user already has a referredBy and a role
       if (existingUser.refferedBy && existingUser.role) {
@@ -795,9 +797,9 @@ class UserService {
   
       const ids = await this.generateId(roleToGenerate);
       console.log("----ids----", ids);
-  
+
       const updateFields = {
-        refferedBy: existingUser.refferedBy,
+        refferedBy: existingUser.refferedBy ? existingUser.refferedBy: refferedBy,
         status: 'active',
         role: existingUser.role,
         paymentStatus: 'completed',
